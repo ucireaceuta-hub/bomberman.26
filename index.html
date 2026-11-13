@@ -1,0 +1,2934 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <title>Bomberman Elemental 3D — Batalla Arcade</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <style>
+    /* ==========================================================================
+       1. ESTILOS GLOBALES Y BLOQUEO TÁCTIL PARA MÓVILES ANDROID
+       ========================================================================== */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #0b1120;
+      font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      color: #f8fafc;
+      touch-action: none;
+    }
+
+    #app-container {
+      position: relative;
+      width: 100vw;
+      height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      align-items: center;
+      background: radial-gradient(circle at top, #1e293b 0%, #090d16 100%);
+      padding-top: max(6px, env(safe-area-inset-top));
+      padding-bottom: max(8px, env(safe-area-inset-bottom));
+      padding-left: max(8px, env(safe-area-inset-left));
+      padding-right: max(8px, env(safe-area-inset-right));
+    }
+
+    /* ==========================================================================
+       2. BARRA SUPERIOR DE ESTADO (HUD: VIDAS, POTENCIADORES, FASE Y AUDIO)
+       ========================================================================== */
+    #hud-header {
+      width: 100%;
+      max-width: 820px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      background: rgba(15, 23, 42, 0.88);
+      border: 1.5px solid rgba(250, 204, 21, 0.45);
+      border-radius: 14px;
+      padding: 6px 10px;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.55);
+      z-index: 15;
+    }
+
+    .hud-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .hud-badge {
+      background: rgba(30, 41, 59, 0.9);
+      border: 1px solid rgba(148, 163, 184, 0.35);
+      border-radius: 9px;
+      padding: 4px 8px;
+      font-size: 12px;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      white-space: nowrap;
+    }
+
+    .lives-hearts {
+      letter-spacing: 1px;
+      font-size: 13px;
+    }
+
+    .stage-label {
+      color: #fde047;
+      font-size: 12px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .hud-btn {
+      background: linear-gradient(180deg, #334155, #1e293b);
+      border: 1.5px solid rgba(250, 204, 21, 0.55);
+      color: #fef9c3;
+      border-radius: 9px;
+      padding: 5px 9px;
+      font-size: 11px;
+      font-weight: 800;
+      cursor: pointer;
+      min-height: 32px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      transition: transform 0.08s, background 0.15s;
+    }
+
+    .hud-btn:active {
+      transform: scale(0.92);
+    }
+
+    .hud-btn.muted {
+      opacity: 0.55;
+      border-color: #64748b;
+    }
+
+    /* ==========================================================================
+       3. ZONA CENTRAL DE ARENA DE JUEGO (ADAPTABLE PORTRAIT Y LANDSCAPE)
+       ========================================================================== */
+    #playfield-area {
+      flex: 1;
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      min-height: 0;
+      padding: 4px 0;
+    }
+
+    canvas#bomber-canvas {
+      display: block;
+      border-radius: 14px;
+      border: 3px solid #facc15;
+      box-shadow: 0 10px 32px rgba(0, 0, 0, 0.75), 0 0 22px rgba(250, 204, 21, 0.22);
+      background: #090d16;
+      touch-action: none;
+      cursor: grab;
+    }
+
+    canvas#bomber-canvas:active {
+      cursor: grabbing;
+    }
+
+    /* ==========================================================================
+       4. MANDOS TÁCTILES EN PANTALLA PARA ANDROID (MULTITOUCH)
+       ========================================================================== */
+    #android-controls {
+      width: 100%;
+      max-width: 820px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 4px 8px 2px;
+      z-index: 20;
+      pointer-events: none;
+    }
+
+    /* Cruceta D-Pad Izquierda */
+    #dpad-container {
+      position: relative;
+      width: clamp(138px, 34vw, 178px);
+      height: clamp(138px, 34vw, 178px);
+      pointer-events: auto;
+      touch-action: none;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(30, 41, 59, 0.65) 0%, rgba(15, 23, 42, 0.35) 72%, transparent 100%);
+      border: 2px solid rgba(250, 204, 21, 0.25);
+      box-shadow: inset 0 0 18px rgba(0, 0, 0, 0.5);
+    }
+
+    .dpad-pad {
+      position: absolute;
+      inset: 10%;
+    }
+
+    .dpad-key {
+      position: absolute;
+      background: linear-gradient(180deg, rgba(51, 65, 85, 0.92), rgba(30, 41, 59, 0.95));
+      border: 2px solid rgba(203, 213, 225, 0.45);
+      color: #f8fafc;
+      font-size: 17px;
+      font-weight: 900;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.55);
+      transition: transform 0.05s, background 0.05s, border-color 0.05s;
+    }
+
+    .dpad-key.pressed {
+      background: linear-gradient(180deg, #facc15, #eab308);
+      border-color: #fef9c3;
+      color: #0f172a;
+      transform: scale(0.94);
+      box-shadow: 0 0 16px rgba(250, 204, 21, 0.8);
+    }
+
+    #key-up {
+      top: 0;
+      left: 31%;
+      width: 38%;
+      height: 36%;
+      border-radius: 14px 14px 4px 4px;
+    }
+
+    #key-down {
+      bottom: 0;
+      left: 31%;
+      width: 38%;
+      height: 36%;
+      border-radius: 4px 4px 14px 14px;
+    }
+
+    #key-left {
+      left: 0;
+      top: 31%;
+      width: 36%;
+      height: 38%;
+      border-radius: 14px 4px 4px 14px;
+    }
+
+    #key-right {
+      right: 0;
+      top: 31%;
+      width: 36%;
+      height: 38%;
+      border-radius: 4px 14px 14px 4px;
+    }
+
+    .dpad-hub {
+      position: absolute;
+      top: 32%;
+      left: 32%;
+      width: 36%;
+      height: 36%;
+      background: rgba(15, 23, 42, 0.9);
+      border-radius: 8px;
+    }
+
+    /* Botones de Acción Derecha */
+    #action-buttons {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      pointer-events: auto;
+      touch-action: none;
+    }
+
+    .action-circle {
+      border-radius: 50%;
+      border: 3px solid rgba(255, 255, 255, 0.7);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-weight: 900;
+      color: #ffffff;
+      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.85);
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.65), inset 0 3px 6px rgba(255, 255, 255, 0.35);
+      cursor: pointer;
+      transition: transform 0.06s, filter 0.06s;
+    }
+
+    .action-circle.pressed {
+      transform: scale(0.9) translateY(2px);
+      filter: brightness(1.28);
+    }
+
+    #btn-dash {
+      width: clamp(62px, 15.5vw, 76px);
+      height: clamp(62px, 15.5vw, 76px);
+      background: radial-gradient(circle at 35% 30%, #38bdf8, #0369a1);
+      border-color: #bae6fd;
+      margin-top: 22px;
+    }
+
+    #btn-bomb {
+      width: clamp(78px, 19.5vw, 94px);
+      height: clamp(78px, 19.5vw, 94px);
+      background: radial-gradient(circle at 35% 30%, #facc15, #dc2626);
+      border-color: #fef08a;
+    }
+
+    .action-circle .icon {
+      font-size: clamp(22px, 5.5vw, 28px);
+      line-height: 1;
+    }
+
+    .action-circle .lbl {
+      font-size: clamp(10px, 2.4vw, 12px);
+      margin-top: 3px;
+      letter-spacing: 0.4px;
+    }
+
+    /* Adaptación automática para teléfonos Android en modo horizontal (Landscape) */
+    @media (orientation: landscape) and (max-height: 540px) {
+      #android-controls {
+        position: fixed;
+        inset: 0;
+        max-width: none;
+        padding: 0 14px 12px;
+        align-items: flex-end;
+        pointer-events: none;
+      }
+      #hud-header {
+        padding: 4px 10px;
+      }
+    }
+
+    /* ==========================================================================
+       5. PANTALLAS DE SELECCIÓN, PAUSA Y RESULTADOS (MODALES SIN ALERT/CONFIRM)
+       ========================================================================== */
+    .overlay-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 50;
+      background: radial-gradient(circle at center, rgba(23, 37, 84, 0.94) 0%, rgba(9, 13, 22, 0.98) 100%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      text-align: center;
+      overflow-y: auto;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    .game-logo {
+      font-size: clamp(24px, 6vw, 44px);
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      background: linear-gradient(180deg, #fef08a 0%, #facc15 50%, #f97316 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      filter: drop-shadow(0 4px 10px rgba(234, 179, 8, 0.55));
+      margin-bottom: 4px;
+    }
+
+    .game-tagline {
+      font-size: clamp(11px, 2.8vw, 14px);
+      color: #cbd5e1;
+      margin-bottom: 14px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    .char-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(135px, 215px));
+      gap: 10px;
+      width: 100%;
+      max-width: 450px;
+      margin-bottom: 14px;
+    }
+
+    .char-card {
+      background: linear-gradient(160deg, rgba(30, 41, 59, 0.92), rgba(15, 23, 42, 0.96));
+      border: 2.5px solid #475569;
+      border-radius: 16px;
+      padding: 8px;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s;
+    }
+
+    .char-card.active {
+      border-color: #facc15;
+      box-shadow: 0 0 22px rgba(250, 204, 21, 0.65);
+      transform: translateY(-2px);
+    }
+
+    .char-preview {
+      width: 78px;
+      height: 78px;
+    }
+
+    .char-title {
+      font-size: 14px;
+      font-weight: 900;
+      margin-top: 2px;
+    }
+
+    .char-perk {
+      font-size: 10px;
+      color: #fde047;
+      font-weight: 700;
+      margin-top: 2px;
+    }
+
+    .stage-select-panel {
+      width: 100%;
+      max-width: 450px;
+      background: rgba(15, 23, 42, 0.85);
+      border: 1.5px solid rgba(148, 163, 184, 0.35);
+      border-radius: 14px;
+      padding: 10px;
+      margin-bottom: 14px;
+    }
+
+    .stage-select-title {
+      font-size: 11px;
+      font-weight: 800;
+      color: #facc15;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      margin-bottom: 7px;
+    }
+
+    .stage-buttons {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 6px;
+    }
+
+    .stage-choice {
+      background: rgba(30, 41, 59, 0.9);
+      border: 1.5px solid #334155;
+      color: #cbd5e1;
+      border-radius: 10px;
+      padding: 7px 6px;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .stage-choice.active {
+      background: linear-gradient(90deg, rgba(234, 179, 8, 0.35), rgba(249, 115, 22, 0.35));
+      border-color: #facc15;
+      color: #ffffff;
+    }
+
+    .btn-play-main {
+      background: linear-gradient(180deg, #facc15 0%, #ea580c 100%);
+      border: 2.5px solid #fef9c3;
+      color: #0f172a;
+      font-size: clamp(16px, 4vw, 20px);
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      padding: 13px 32px;
+      border-radius: 14px;
+      cursor: pointer;
+      box-shadow: 0 6px 22px rgba(234, 88, 12, 0.65);
+      transition: transform 0.1s;
+    }
+
+    .btn-play-main:active {
+      transform: scale(0.95);
+    }
+
+    .help-text {
+      margin-top: 10px;
+      font-size: 11px;
+      color: #94a3b8;
+      max-width: 450px;
+      line-height: 1.35;
+    }
+
+    .dialog-box {
+      background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+      border: 2.5px solid #facc15;
+      border-radius: 18px;
+      padding: 22px;
+      max-width: 400px;
+      width: 92%;
+      box-shadow: 0 12px 36px rgba(0, 0, 0, 0.85);
+    }
+
+    .dialog-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    .btn-secondary {
+      background: #334155;
+      border: 1.5px solid #64748b;
+      color: #f8fafc;
+      font-size: 14px;
+      font-weight: 800;
+      padding: 11px 18px;
+      border-radius: 12px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div id="app-container">
+    <!-- BARRA SUPERIOR DE ESTADO -->
+    <header id="hud-header">
+      <div class="hud-group">
+        <div class="hud-badge" title="Tus 3 vidas">
+          <span>VIDAS:</span>
+          <span id="hud-lives" class="lives-hearts">❤️❤️❤️</span>
+        </div>
+        <div class="hud-badge" title="Potenciadores activos">
+          <span id="hud-stats">💣1 🔥2 ⚡1</span>
+        </div>
+      </div>
+
+      <div class="hud-group">
+        <span id="hud-stage" class="stage-label">FASE 1</span>
+        <div class="hud-badge">
+          <span>⏱️</span>
+          <span id="hud-timer">180</span>
+        </div>
+        <div class="hud-badge" title="Rivales restantes">
+          <span>👾</span>
+          <span id="hud-enemies">1</span>
+        </div>
+      </div>
+
+      <div class="hud-group">
+        <button id="btn-cam" class="hud-btn" type="button" aria-label="Cambiar vista 3D">🎥 VISTA 3D</button>
+        <button id="btn-music" class="hud-btn" type="button" aria-label="Alternar música">🎵 MÚSICA</button>
+        <button id="btn-sfx" class="hud-btn" type="button" aria-label="Alternar efectos">🔊 SFX</button>
+        <button id="btn-pause" class="hud-btn" type="button" aria-label="Pausar">⏸</button>
+      </div>
+    </header>
+
+    <!-- ÁREA CENTRAL CON LIENZO DE ARENA BOMBERMAN -->
+    <main id="playfield-area">
+      <canvas id="bomber-canvas"></canvas>
+    </main>
+
+    <!-- MANDOS TÁCTILES EN PANTALLA PARA ANDROID -->
+    <footer id="android-controls">
+      <!-- Cruceta D-Pad -->
+      <div id="dpad-container" aria-label="Cruceta direccional">
+        <div class="dpad-pad">
+          <div id="key-up" class="dpad-key">▲</div>
+          <div id="key-down" class="dpad-key">▼</div>
+          <div id="key-left" class="dpad-key">◀</div>
+          <div id="key-right" class="dpad-key">▶</div>
+          <div class="dpad-hub"></div>
+        </div>
+      </div>
+
+      <!-- Botones de Bombas e Impulso/Patada -->
+      <div id="action-buttons" aria-label="Botones de acción">
+        <button id="btn-dash" class="action-circle" type="button">
+          <span class="icon">⚡</span>
+          <span class="lbl">IMPULSO</span>
+        </button>
+        <button id="btn-bomb" class="action-circle" type="button">
+          <span class="icon">💣</span>
+          <span class="lbl">BOMBA</span>
+        </button>
+      </div>
+    </footer>
+
+    <!-- PANTALLA DE INICIO Y SELECCIÓN DE PERSONAJE -->
+    <section id="start-overlay" class="overlay-modal">
+      <h1 class="game-logo">BOMBERMAN ELEMENTAL 3D</h1>
+      <p class="game-tagline">Escenario y Luchadores 3D • 4 Fases • 3 Vidas • Música Chiptune</p>
+
+      <div class="char-grid">
+        <!-- Voltmouse (Basado en la imagen adjunta) -->
+        <div class="char-card active" data-char="volt" role="button" tabindex="0">
+          <canvas id="prev-volt" class="char-preview" width="120" height="120"></canvas>
+          <div class="char-title" style="color: #facc15;">VOLTMOUSE</div>
+          <div class="char-perk">⚡ Velocidad Inicial +1</div>
+        </div>
+
+        <!-- Pyrodrake -->
+        <div class="char-card" data-char="pyro" role="button" tabindex="0">
+          <canvas id="prev-pyro" class="char-preview" width="120" height="120"></canvas>
+          <div class="char-title" style="color: #fb923c;">PYRODRAKE</div>
+          <div class="char-perk">🔥 Alcance Llama +1</div>
+        </div>
+
+        <!-- Hydroshell -->
+        <div class="char-card" data-char="hydro" role="button" tabindex="0">
+          <canvas id="prev-hydro" class="char-preview" width="120" height="120"></canvas>
+          <div class="char-title" style="color: #38bdf8;">HYDROSHELL</div>
+          <div class="char-perk">👟 Patear Bombas Inicial</div>
+        </div>
+
+        <!-- Brawnix -->
+        <div class="char-card" data-char="brawn" role="button" tabindex="0">
+          <canvas id="prev-brawn" class="char-preview" width="120" height="120"></canvas>
+          <div class="char-title" style="color: #cbd5e1;">BRAWNIX</div>
+          <div class="char-perk">💣 Capacidad Bombas +1</div>
+        </div>
+      </div>
+
+      <div class="stage-select-panel">
+        <div class="stage-select-title">Selecciona Fase Inicial</div>
+        <div class="stage-buttons">
+          <button class="stage-choice active" data-stage="0">Fase 1: Pradera Soleada</button>
+          <button class="stage-choice" data-stage="1">Fase 2: Costa Coralina</button>
+          <button class="stage-choice" data-stage="2">Fase 3: Ruinas Eléctricas</button>
+          <button class="stage-choice" data-stage="3">Fase 4: Fortaleza Volcánica</button>
+        </div>
+      </div>
+
+      <button id="btn-start-game" class="btn-play-main">⚡ ¡COMENZAR BATALLA 3D! 💣</button>
+
+      <p class="help-text">
+        <strong>Android:</strong> Cruceta izquierda mover • <b>BOMBA</b> explosivo 3D • <b>IMPULSO</b> acelera/patea • Arrastra la arena o pulsa <b>🎥 VISTA 3D</b> para girar cámara.<br/>
+        <strong>PC:</strong> Flechas/WASD mover • Espacio/Z bomba • X/Shift impulso • Arrastra con el ratón para rotar la cámara 3D.
+      </p>
+    </section>
+
+    <!-- MODAL DE PAUSA -->
+    <section id="pause-overlay" class="overlay-modal hidden">
+      <div class="dialog-box">
+        <h2 class="game-logo" style="font-size: 28px;">JUEGO PAUSADO</h2>
+        <p style="color: #cbd5e1; font-size: 13px; margin-top: 8px; line-height: 1.45;">
+          Destruye bloques para encontrar potenciadores:<br/>
+          💣 <b>+Bomba</b> • 🔥 <b>+Llama</b> • ⚡ <b>+Velocidad</b> • 👟 <b>Patear</b> • ❤️ <b>+1 Vida</b>
+        </p>
+        <div class="dialog-actions">
+          <button id="btn-resume" class="btn-play-main" style="font-size: 16px; padding: 11px;">▶ CONTINUAR</button>
+          <button id="btn-restart-stage" class="btn-secondary">🔄 REINICIAR FASE</button>
+          <button id="btn-to-menu" class="btn-secondary">🏠 CAMBIAR PERSONAJE</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- MODAL DE FIN DE FASE / DERROTA -->
+    <section id="end-overlay" class="overlay-modal hidden">
+      <div class="dialog-box">
+        <h2 id="end-title" class="game-logo" style="font-size: 28px;">¡FASE SUPERADA!</h2>
+        <p id="end-subtitle" style="color: #fde047; font-weight: 700; font-size: 14px; margin-top: 6px;"></p>
+        <p id="end-details" style="color: #94a3b8; font-size: 13px; margin-top: 8px; line-height: 1.4;"></p>
+        <div class="dialog-actions">
+          <button id="btn-end-primary" class="btn-play-main" style="font-size: 16px; padding: 12px;">⚔️ SIGUIENTE FASE</button>
+          <button id="btn-end-menu" class="btn-secondary">🏠 MENÚ PRINCIPAL</button>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    /**
+     * ============================================================================
+     * BOMBERMAN ELEMENTAL — MOTOR COMPLETO EN UN ÚNICO ARCHIVO HTML
+     * Incluye:
+     *  1. Sintetizador de Música de Fondo Chiptune + Efectos SFX (Web Audio API)
+     *  2. Renderizado detallado de Voltmouse (inspirado en imagen) y 3 rivales
+     *  3. Cuadrícula clásica 13x11 con deslizamiento en esquinas y reacciones en cadena
+     *  4. 4 Fases progresivas, potenciadores y 3 vidas por cada luchador
+     *  5. IA táctica que esquiva explosiones, recoge mejoras y coloca bombas
+     *  6. Mandos táctiles multitouch para Android + soporte de teclado PC
+     * ============================================================================
+     */
+    (() => {
+      'use strict';
+
+      /* --------------------------------------------------------------------------
+         1. MOTOR DE MÚSICA DE FONDO CHIPTUNE Y EFECTOS DE SONIDO (WEB AUDIO API)
+         -------------------------------------------------------------------------- */
+      class ChiptuneAudioEngine {
+        constructor() {
+          this.ctx = null;
+          this.musicMuted = false;
+          this.sfxMuted = false;
+          this.isPlayingMusic = false;
+          this.musicTimer = null;
+          this.stepIndex = 0;
+          this.currentTheme = 'battle'; // 'battle' | 'boss'
+        }
+
+        init() {
+          if (!this.ctx) {
+            const AudioCtx = window.AudioContext || window.webkitAudioContext;
+            if (AudioCtx) {
+              this.ctx = new AudioCtx();
+            }
+          }
+          if (this.ctx && this.ctx.state === 'suspended') {
+            this.ctx.resume().catch(() => {});
+          }
+        }
+
+        toggleMusic() {
+          this.musicMuted = !this.musicMuted;
+          if (this.musicMuted) {
+            this.stopMusic();
+          } else if (gameState === 'PLAYING') {
+            this.startMusic(this.currentTheme);
+          }
+          return this.musicMuted;
+        }
+
+        toggleSfx() {
+          this.sfxMuted = !this.sfxMuted;
+          return this.sfxMuted;
+        }
+
+        playNote(freq, duration, type = 'square', gainVal = 0.08, delay = 0) {
+          if (!this.ctx || freq <= 0) return;
+          const now = this.ctx.currentTime + delay;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = type;
+          osc.frequency.setValueAtTime(freq, now);
+
+          gain.gain.setValueAtTime(0.001, now);
+          gain.gain.linearRampToValueAtTime(gainVal, now + 0.015);
+          gain.gain.exponentialRampToValueAtTime(0.0008, now + duration);
+
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(now);
+          osc.stop(now + duration + 0.02);
+        }
+
+        startMusic(theme = 'battle') {
+          this.currentTheme = theme;
+          this.init();
+          if (this.musicMuted || !this.ctx) return;
+          this.stopMusic();
+          this.isPlayingMusic = true;
+          this.stepIndex = 0;
+
+          // Melodía arcade estilo Bomberman (32 semicorcheas por bucle)
+          const N = {
+            C4: 261.63, D4: 293.66, E4: 329.63, F4: 349.23, G4: 392.00, A4: 440.00, B4: 493.88,
+            C5: 523.25, D5: 587.33, E5: 659.25, F5: 698.46, G5: 783.99, A5: 880.00,
+            C3: 130.81, D3: 146.83, E3: 164.81, F3: 174.61, G3: 196.00, A3: 220.00,
+            Eb4: 311.13, Bb4: 466.16, Eb5: 622.25, C2: 65.41, G2: 98.00, F2: 87.31, Ab2: 103.83, Bb2: 116.54
+          };
+
+          const battleLead = [
+            N.C5, 0, N.E5, N.G5, N.E5, 0, N.C5, N.D5,
+            N.E5, N.G5, N.A5, N.G5, N.E5, 0, N.D5, 0,
+            N.F5, 0, N.A5, N.G5, N.F5, N.E5, N.D5, N.C5,
+            N.D5, 0, N.G5, 0, N.E5, 0, N.C5, 0
+          ];
+          const battleBass = [
+            N.C3, 0, N.G3, 0, N.C3, 0, N.G3, 0,
+            N.A3, 0, N.E3, 0, N.A3, 0, N.E3, 0,
+            N.F3, 0, N.C3, 0, N.D3, 0, N.A3, 0,
+            N.G3, 0, N.D3, 0, N.G3, N.B4 * 0.5, N.C3, 0
+          ];
+
+          const bossLead = [
+            N.C5, N.Eb5, N.G5, N.Eb5, N.C5, N.Bb4, N.C5, 0,
+            N.F5, N.Eb5, N.D5, N.C5, N.B4, N.D5, N.G5, 0,
+            N.C5, N.G5, N.F5, N.Eb5, N.D5, N.Eb5, N.F5, N.D5,
+            N.Eb5, N.C5, N.B4, N.D5, N.C5, 0, N.G4, 0
+          ];
+          const bossBass = [
+            N.C2, N.C3, N.C2, N.C3, N.Ab2, N.Ab2, N.Bb2, N.Bb2,
+            N.F2, N.F3, N.F2, N.F3, N.G2, N.G3, N.G2, N.G3,
+            N.C2, N.C3, N.Eb4 * 0.5, N.C3, N.F2, N.F3, N.Ab2, N.F2,
+            N.G2, N.G3, N.G2, N.B4 * 0.25, N.C2, 0, N.G2, 0
+          ];
+
+          const tempoMs = theme === 'boss' ? 145 : 165;
+
+          const tick = () => {
+            if (!this.isPlayingMusic || this.musicMuted) return;
+            const leadArr = theme === 'boss' ? bossLead : battleLead;
+            const bassArr = theme === 'boss' ? bossBass : battleBass;
+            const idx = this.stepIndex % leadArr.length;
+
+            if (leadArr[idx] > 0) {
+              this.playNote(leadArr[idx], 0.14, 'square', 0.055);
+            }
+            if (bassArr[idx] > 0) {
+              this.playNote(bassArr[idx], 0.16, 'triangle', 0.085);
+            }
+            // Pulso rítmico suave en contratiempo
+            if (idx % 4 === 2) {
+              this.playNoise(0.035, 3200, 0.025);
+            }
+
+            this.stepIndex++;
+          };
+
+          tick();
+          this.musicTimer = setInterval(tick, tempoMs);
+        }
+
+        stopMusic() {
+          this.isPlayingMusic = false;
+          if (this.musicTimer) {
+            clearInterval(this.musicTimer);
+            this.musicTimer = null;
+          }
+        }
+
+        playNoise(duration, filterFreq = 800, gainVal = 0.2, delay = 0) {
+          if (!this.ctx) return;
+          const now = this.ctx.currentTime + delay;
+          const bufferSize = Math.max(1, Math.floor(this.ctx.sampleRate * duration));
+          const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+          const data = buffer.getChannelData(0);
+          for (let i = 0; i < bufferSize; i++) {
+            data[i] = Math.random() * 2 - 1;
+          }
+          const src = this.ctx.createBufferSource();
+          src.buffer = buffer;
+
+          const filter = this.ctx.createBiquadFilter();
+          filter.type = 'lowpass';
+          filter.frequency.setValueAtTime(filterFreq, now);
+
+          const gain = this.ctx.createGain();
+          gain.gain.setValueAtTime(gainVal, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+
+          src.connect(filter);
+          filter.connect(gain);
+          gain.connect(this.ctx.destination);
+          src.start(now);
+        }
+
+        sfxPlaceBomb() {
+          if (this.sfxMuted) return;
+          this.init();
+          this.playNote(190, 0.09, 'sine', 0.18);
+          this.playNote(280, 0.08, 'triangle', 0.14, 0.04);
+        }
+
+        sfxExplosion() {
+          if (this.sfxMuted) return;
+          this.init();
+          this.playNoise(0.45, 520, 0.34);
+          this.playNote(110, 0.35, 'sawtooth', 0.24);
+          this.playNote(68, 0.42, 'triangle', 0.26, 0.03);
+        }
+
+        sfxPowerup() {
+          if (this.sfxMuted) return;
+          this.init();
+          const notes = [523.25, 659.25, 783.99, 1046.5];
+          notes.forEach((n, i) => this.playNote(n, 0.11, 'square', 0.12, i * 0.055));
+        }
+
+        sfxKick() {
+          if (this.sfxMuted) return;
+          this.init();
+          this.playNote(240, 0.1, 'triangle', 0.18);
+          this.playNote(420, 0.09, 'sine', 0.15, 0.04);
+        }
+
+        sfxHurt() {
+          if (this.sfxMuted) return;
+          this.init();
+          this.playNote(310, 0.14, 'sawtooth', 0.22);
+          this.playNote(165, 0.24, 'sawtooth', 0.24, 0.09);
+        }
+
+        sfxStageClear() {
+          if (this.sfxMuted) return;
+          this.init();
+          const fanfare = [392.0, 523.25, 659.25, 783.99, 659.25, 1046.5];
+          fanfare.forEach((n, i) => this.playNote(n, 0.18, 'square', 0.14, i * 0.11));
+        }
+      }
+
+      const audio = new ChiptuneAudioEngine();
+
+      /* --------------------------------------------------------------------------
+         2. CONFIGURACIÓN DE LAS 4 FASES PROGRESIVAS
+         -------------------------------------------------------------------------- */
+      const STAGES = [
+        {
+          id: 0,
+          name: 'FASE 1: PRADERA SOLEADA',
+          floorA: '#65a30d',
+          floorB: '#4d7c0f',
+          wallFill: '#475569',
+          wallTop: '#94a3b8',
+          blockFill: '#b45309',
+          blockAccent: '#f59e0b',
+          rivals: ['pyro'],
+          aiSkill: 1,
+          theme: 'battle'
+        },
+        {
+          id: 1,
+          name: 'FASE 2: COSTA CORALINA',
+          floorA: '#eab308',
+          floorB: '#ca8a04',
+          wallFill: '#0369a1',
+          wallTop: '#38bdf8',
+          blockFill: '#be185d',
+          blockAccent: '#f472b6',
+          rivals: ['hydro', 'brawn'],
+          aiSkill: 2,
+          theme: 'battle'
+        },
+        {
+          id: 2,
+          name: 'FASE 3: RUINAS ELÉCTRICAS',
+          floorA: '#334155',
+          floorB: '#1e293b',
+          wallFill: '#4c1d95',
+          wallTop: '#a78bfa',
+          blockFill: '#0f766e',
+          blockAccent: '#2dd4bf',
+          rivals: ['pyro', 'hydro'],
+          aiSkill: 3,
+          theme: 'boss'
+        },
+        {
+          id: 3,
+          name: 'FASE 4: FORTALEZA VOLCÁNICA',
+          floorA: '#451a03',
+          floorB: '#290d0d',
+          wallFill: '#7f1d1d',
+          wallTop: '#f97316',
+          blockFill: '#57534e',
+          blockAccent: '#fb923c',
+          rivals: ['pyro', 'hydro', 'brawn'],
+          aiSkill: 4,
+          theme: 'boss'
+        }
+      ];
+
+      /* --------------------------------------------------------------------------
+         3. MODELADO 3D PROCEDURAL DE PERSONAJES (THREE.JS) Y RETRATOS EN TARJETAS
+         -------------------------------------------------------------------------- */
+      function createFighter3DMesh(type) {
+        const root = new THREE.Group();
+        const bodyGroup = new THREE.Group();
+        root.add(bodyGroup);
+
+        const parts = {
+          root,
+          bodyGroup,
+          leftLeg: new THREE.Group(),
+          rightLeg: new THREE.Group(),
+          leftArm: new THREE.Group(),
+          rightArm: new THREE.Group(),
+          tail: new THREE.Group(),
+          ears: [],
+          flameTip: null,
+          materials: []
+        };
+
+        const mat = (color, rough = 0.42, metal = 0.08, emissive = 0x000000) => {
+          const m = new THREE.MeshStandardMaterial({
+            color,
+            roughness: rough,
+            metalness: metal,
+            emissive
+          });
+          parts.materials.push(m);
+          return m;
+        };
+
+        const castRecv = (mesh) => {
+          mesh.castShadow = true;
+          mesh.receiveShadow = true;
+          return mesh;
+        };
+
+        if (type === 'volt') {
+          /* --- MODELO 3D VOLTMOUSE (Fiel a la imagen adjunta) --- */
+          const yellowMat = mat(0xffd619, 0.35, 0.05);
+          const darkBrownMat = mat(0x382012, 0.5, 0.05);
+          const redCheekMat = mat(0xef4444, 0.3, 0.05, 0x330505);
+          const eyeBlackMat = mat(0x1e110a, 0.15, 0.2);
+          const whiteMat = mat(0xffffff, 0.1, 0.1);
+          const mouthPinkMat = mat(0xe11d48, 0.4, 0.05);
+
+          // Torso rechoncho 3D
+          const torso = castRecv(new THREE.Mesh(new THREE.SphereGeometry(0.28, 20, 16), yellowMat));
+          torso.scale.set(1.0, 1.08, 0.92);
+          torso.position.set(0, 0.30, 0);
+          bodyGroup.add(torso);
+
+          // Cabeza esférica 3D
+          const head = castRecv(new THREE.Mesh(new THREE.SphereGeometry(0.27, 22, 18), yellowMat));
+          head.scale.set(1.06, 0.98, 0.98);
+          head.position.set(0, 0.62, 0.02);
+          bodyGroup.add(head);
+
+          // Orejas largas con puntas marrón oscuro
+          [-1, 1].forEach((side) => {
+            const earPivot = new THREE.Group();
+            earPivot.position.set(side * 0.15, 0.82, 0);
+            earPivot.rotation.z = -side * 0.38;
+            earPivot.rotation.x = -0.12;
+
+            const earBase = castRecv(new THREE.Mesh(new THREE.CylinderGeometry(0.052, 0.065, 0.22, 12), yellowMat));
+            earBase.position.y = 0.11;
+            earPivot.add(earBase);
+
+            const earTip = castRecv(new THREE.Mesh(new THREE.ConeGeometry(0.052, 0.15, 12), darkBrownMat));
+            earTip.position.y = 0.29;
+            earPivot.add(earTip);
+
+            bodyGroup.add(earPivot);
+            parts.ears.push(earPivot);
+          });
+
+          // Ojos grandes oscuros con brillo blanco especular
+          [-1, 1].forEach((side) => {
+            const eye = new THREE.Mesh(new THREE.SphereGeometry(0.052, 12, 12), eyeBlackMat);
+            eye.position.set(side * 0.11, 0.65, 0.24);
+            bodyGroup.add(eye);
+
+            const glint = new THREE.Mesh(new THREE.SphereGeometry(0.02, 8, 8), whiteMat);
+            glint.position.set(side * 0.11 - 0.015, 0.67, 0.285);
+            bodyGroup.add(glint);
+
+            // Mejillas rojas eléctricas 3D
+            const cheek = new THREE.Mesh(new THREE.SphereGeometry(0.058, 12, 12), redCheekMat);
+            cheek.scale.set(1, 1, 0.6);
+            cheek.position.set(side * 0.19, 0.56, 0.21);
+            bodyGroup.add(cheek);
+          });
+
+          // Nariz y boca alegre
+          const nose = new THREE.Mesh(new THREE.SphereGeometry(0.02, 8, 8), eyeBlackMat);
+          nose.position.set(0, 0.60, 0.28);
+          bodyGroup.add(nose);
+
+          const mouth = new THREE.Mesh(new THREE.SphereGeometry(0.038, 10, 10), mouthPinkMat);
+          mouth.scale.set(1.1, 0.7, 0.5);
+          mouth.position.set(0, 0.54, 0.265);
+          bodyGroup.add(mouth);
+
+          // Bracitos delanteros
+          parts.leftArm.position.set(-0.22, 0.38, 0.12);
+          parts.rightArm.position.set(0.22, 0.38, 0.12);
+          const armGeo = new THREE.CylinderGeometry(0.055, 0.048, 0.18, 10);
+          const lArmMesh = castRecv(new THREE.Mesh(armGeo, yellowMat));
+          lArmMesh.rotation.x = 0.5;
+          lArmMesh.rotation.z = 0.3;
+          parts.leftArm.add(lArmMesh);
+
+          const rArmMesh = castRecv(new THREE.Mesh(armGeo, yellowMat));
+          rArmMesh.rotation.x = 0.5;
+          rArmMesh.rotation.z = -0.3;
+          parts.rightArm.add(rArmMesh);
+          bodyGroup.add(parts.leftArm, parts.rightArm);
+
+          // Patitas inferiores
+          parts.leftLeg.position.set(-0.12, 0.10, 0.04);
+          parts.rightLeg.position.set(0.12, 0.10, 0.04);
+          const footGeo = new THREE.BoxGeometry(0.11, 0.08, 0.18);
+          parts.leftLeg.add(castRecv(new THREE.Mesh(footGeo, yellowMat)));
+          parts.rightLeg.add(castRecv(new THREE.Mesh(footGeo, yellowMat)));
+          bodyGroup.add(parts.leftLeg, parts.rightLeg);
+
+          // Cola en zigzag con forma de rayo 3D
+          parts.tail.position.set(0, 0.24, -0.24);
+          const seg1 = castRecv(new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.16, 0.08), darkBrownMat));
+          seg1.position.set(0, 0.06, -0.05);
+          seg1.rotation.x = -0.6;
+          const seg2 = castRecv(new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.22, 0.10), yellowMat));
+          seg2.position.set(0, 0.18, -0.14);
+          seg2.rotation.x = 0.4;
+          const seg3 = castRecv(new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.28, 0.14), yellowMat));
+          seg3.position.set(0, 0.34, -0.22);
+          seg3.rotation.x = -0.5;
+          parts.tail.add(seg1, seg2, seg3);
+          bodyGroup.add(parts.tail);
+
+        } else if (type === 'pyro') {
+          /* --- MODELO 3D PYRODRAKE (Lagarto de fuego con cola llameante) --- */
+          const orangeMat = mat(0xf97316, 0.4, 0.05);
+          const creamMat = mat(0xfef08a, 0.45, 0.05);
+          const tealEyeMat = mat(0x0f766e, 0.2, 0.1);
+          const whiteMat = mat(0xffffff, 0.15, 0.1);
+          const fireOuterMat = mat(0xef4444, 0.2, 0.0, 0xdc2626);
+          const fireInnerMat = mat(0xfacc15, 0.1, 0.0, 0xfacc15);
+
+          const torso = castRecv(new THREE.Mesh(new THREE.SphereGeometry(0.26, 18, 16), orangeMat));
+          torso.scale.set(0.95, 1.18, 0.9);
+          torso.position.set(0, 0.33, 0);
+          bodyGroup.add(torso);
+
+          const belly = new THREE.Mesh(new THREE.SphereGeometry(0.21, 16, 14), creamMat);
+          belly.scale.set(0.85, 1.05, 0.55);
+          belly.position.set(0, 0.32, 0.14);
+          bodyGroup.add(belly);
+
+          const head = castRecv(new THREE.Mesh(new THREE.SphereGeometry(0.23, 18, 16), orangeMat));
+          head.scale.set(0.95, 1.0, 1.12);
+          head.position.set(0, 0.66, 0.05);
+          bodyGroup.add(head);
+
+          [-1, 1].forEach((side) => {
+            const eyeW = new THREE.Mesh(new THREE.SphereGeometry(0.05, 10, 10), whiteMat);
+            eyeW.position.set(side * 0.11, 0.69, 0.23);
+            const iris = new THREE.Mesh(new THREE.SphereGeometry(0.036, 10, 10), tealEyeMat);
+            iris.position.set(side * 0.11, 0.69, 0.26);
+            bodyGroup.add(eyeW, iris);
+          });
+
+          parts.leftArm.position.set(-0.24, 0.44, 0.06);
+          parts.rightArm.position.set(0.24, 0.44, 0.06);
+          const armGeo = new THREE.CylinderGeometry(0.055, 0.045, 0.22, 10);
+          parts.leftArm.add(castRecv(new THREE.Mesh(armGeo, orangeMat)));
+          parts.rightArm.add(castRecv(new THREE.Mesh(armGeo, orangeMat)));
+          bodyGroup.add(parts.leftArm, parts.rightArm);
+
+          parts.leftLeg.position.set(-0.13, 0.12, 0);
+          parts.rightLeg.position.set(0.13, 0.12, 0);
+          const legGeo = new THREE.CylinderGeometry(0.075, 0.065, 0.20, 10);
+          parts.leftLeg.add(castRecv(new THREE.Mesh(legGeo, orangeMat)));
+          parts.rightLeg.add(castRecv(new THREE.Mesh(legGeo, orangeMat)));
+          bodyGroup.add(parts.leftLeg, parts.rightLeg);
+
+          // Cola con llama 3D viva
+          parts.tail.position.set(0, 0.22, -0.22);
+          const tailStem = castRecv(new THREE.Mesh(new THREE.ConeGeometry(0.09, 0.36, 10), orangeMat));
+          tailStem.rotation.x = -1.1;
+          tailStem.position.set(0, 0.08, -0.14);
+          parts.tail.add(tailStem);
+
+          const flameGroup = new THREE.Group();
+          flameGroup.position.set(0, 0.22, -0.30);
+          const fOuter = new THREE.Mesh(new THREE.ConeGeometry(0.11, 0.26, 10), fireOuterMat);
+          const fInner = new THREE.Mesh(new THREE.ConeGeometry(0.065, 0.18, 8), fireInnerMat);
+          fInner.position.y = 0.02;
+          flameGroup.add(fOuter, fInner);
+          parts.flameTip = flameGroup;
+          parts.tail.add(flameGroup);
+          bodyGroup.add(parts.tail);
+
+        } else if (type === 'hydro') {
+          /* --- MODELO 3D HYDROSHELL (Tortuga celeste con caparazón 3D) --- */
+          const blueMat = mat(0x38bdf8, 0.35, 0.08);
+          const creamMat = mat(0xfef08a, 0.45, 0.05);
+          const shellBrownMat = mat(0x9a3412, 0.5, 0.1);
+          const whiteMat = mat(0xf8fafc, 0.2, 0.1);
+          const eyeRedMat = mat(0x881337, 0.2, 0.1);
+
+          // Peto y torso
+          const torso = castRecv(new THREE.Mesh(new THREE.SphereGeometry(0.26, 18, 16), creamMat));
+          torso.scale.set(0.96, 1.1, 0.85);
+          torso.position.set(0, 0.32, 0.02);
+          bodyGroup.add(torso);
+
+          // Caparazón dorsal marrón con aro blanco
+          const shell = castRecv(new THREE.Mesh(new THREE.SphereGeometry(0.28, 18, 16), shellBrownMat));
+          shell.scale.set(1.02, 1.12, 0.65);
+          shell.position.set(0, 0.34, -0.12);
+          bodyGroup.add(shell);
+
+          const rim = castRecv(new THREE.Mesh(new THREE.TorusGeometry(0.26, 0.038, 10, 20), whiteMat));
+          rim.scale.set(0.95, 1.1, 1);
+          rim.position.set(0, 0.34, -0.06);
+          bodyGroup.add(rim);
+
+          // Cabeza celeste
+          const head = castRecv(new THREE.Mesh(new THREE.SphereGeometry(0.24, 18, 16), blueMat));
+          head.position.set(0, 0.65, 0.04);
+          bodyGroup.add(head);
+
+          [-1, 1].forEach((side) => {
+            const eyeW = new THREE.Mesh(new THREE.SphereGeometry(0.05, 10, 10), whiteMat);
+            eyeW.position.set(side * 0.10, 0.68, 0.24);
+            const iris = new THREE.Mesh(new THREE.SphereGeometry(0.035, 10, 10), eyeRedMat);
+            iris.position.set(side * 0.10, 0.68, 0.27);
+            bodyGroup.add(eyeW, iris);
+          });
+
+          parts.leftArm.position.set(-0.25, 0.42, 0.06);
+          parts.rightArm.position.set(0.25, 0.42, 0.06);
+          const armGeo = new THREE.CylinderGeometry(0.055, 0.048, 0.20, 10);
+          parts.leftArm.add(castRecv(new THREE.Mesh(armGeo, blueMat)));
+          parts.rightArm.add(castRecv(new THREE.Mesh(armGeo, blueMat)));
+          bodyGroup.add(parts.leftArm, parts.rightArm);
+
+          parts.leftLeg.position.set(-0.13, 0.12, 0.02);
+          parts.rightLeg.position.set(0.13, 0.12, 0.02);
+          const legGeo = new THREE.CylinderGeometry(0.075, 0.065, 0.20, 10);
+          parts.leftLeg.add(castRecv(new THREE.Mesh(legGeo, blueMat)));
+          parts.rightLeg.add(castRecv(new THREE.Mesh(legGeo, blueMat)));
+          bodyGroup.add(parts.leftLeg, parts.rightLeg);
+
+          // Cola espiral
+          parts.tail.position.set(0, 0.18, -0.25);
+          const tailSpiral = castRecv(new THREE.Mesh(new THREE.TorusGeometry(0.09, 0.048, 10, 16), blueMat));
+          tailSpiral.rotation.y = Math.PI / 2;
+          tailSpiral.position.set(0, 0.04, -0.08);
+          parts.tail.add(tailSpiral);
+          bodyGroup.add(parts.tail);
+
+        } else {
+          /* --- MODELO 3D BRAWNIX (Luchador musculoso con 3 crestas doradas) --- */
+          const slateMat = mat(0x94a3b8, 0.4, 0.15);
+          const goldMat = mat(0xfacc15, 0.25, 0.45);
+          const redEyeMat = mat(0xdc2626, 0.2, 0.1, 0x450a0a);
+          const whiteMat = mat(0xffffff, 0.15, 0.1);
+
+          const torso = castRecv(new THREE.Mesh(new THREE.CylinderGeometry(0.27, 0.21, 0.42, 16), slateMat));
+          torso.position.set(0, 0.36, 0);
+          bodyGroup.add(torso);
+
+          const head = castRecv(new THREE.Mesh(new THREE.SphereGeometry(0.23, 18, 16), slateMat));
+          head.position.set(0, 0.67, 0.03);
+          bodyGroup.add(head);
+
+          // 3 Crestas doradas en la cabeza
+          [-1, 0, 1].forEach((c) => {
+            const crest = castRecv(new THREE.Mesh(new THREE.BoxGeometry(0.045, 0.16, 0.22), goldMat));
+            crest.position.set(c * 0.07, 0.86, 0.02);
+            crest.rotation.z = -c * 0.15;
+            bodyGroup.add(crest);
+          });
+
+          [-1, 1].forEach((side) => {
+            const eyeW = new THREE.Mesh(new THREE.SphereGeometry(0.048, 10, 10), whiteMat);
+            eyeW.position.set(side * 0.10, 0.69, 0.22);
+            const iris = new THREE.Mesh(new THREE.SphereGeometry(0.034, 10, 10), redEyeMat);
+            iris.position.set(side * 0.10, 0.69, 0.25);
+            bodyGroup.add(eyeW, iris);
+          });
+
+          parts.leftArm.position.set(-0.29, 0.46, 0.04);
+          parts.rightArm.position.set(0.29, 0.46, 0.04);
+          const bicepGeo = new THREE.SphereGeometry(0.095, 12, 12);
+          const fistGeo = new THREE.SphereGeometry(0.085, 12, 12);
+          const lBicep = castRecv(new THREE.Mesh(bicepGeo, slateMat));
+          const lFist = castRecv(new THREE.Mesh(fistGeo, slateMat));
+          lFist.position.set(0, -0.12, 0.08);
+          parts.leftArm.add(lBicep, lFist);
+
+          const rBicep = castRecv(new THREE.Mesh(bicepGeo, slateMat));
+          const rFist = castRecv(new THREE.Mesh(fistGeo, slateMat));
+          rFist.position.set(0, -0.12, 0.08);
+          parts.rightArm.add(rBicep, rFist);
+          bodyGroup.add(parts.leftArm, parts.rightArm);
+
+          parts.leftLeg.position.set(-0.13, 0.12, 0);
+          parts.rightLeg.position.set(0.13, 0.12, 0);
+          const legGeo = new THREE.CylinderGeometry(0.08, 0.07, 0.22, 10);
+          parts.leftLeg.add(castRecv(new THREE.Mesh(legGeo, slateMat)));
+          parts.rightLeg.add(castRecv(new THREE.Mesh(legGeo, slateMat)));
+          bodyGroup.add(parts.leftLeg, parts.rightLeg);
+        }
+
+        return parts;
+      }
+
+      function animateFighter3D(parts, animTime, isMoving, dir, invulnTimer) {
+        if (!parts) return;
+        const speed = isMoving ? 15 : 5;
+        const swing = isMoving ? Math.sin(animTime * speed) * 0.65 : Math.sin(animTime * 4) * 0.08;
+        const bounce = isMoving ? Math.abs(Math.sin(animTime * speed)) * 0.08 : Math.sin(animTime * 4) * 0.02;
+
+        parts.bodyGroup.position.y = bounce;
+        parts.leftLeg.rotation.x = swing;
+        parts.rightLeg.rotation.x = -swing;
+        parts.leftArm.rotation.x = -swing * 0.8;
+        parts.rightArm.rotation.x = swing * 0.8;
+        parts.tail.rotation.y = Math.sin(animTime * (isMoving ? 14 : 6)) * 0.25;
+
+        parts.ears.forEach((ear, idx) => {
+          const sign = idx === 0 ? -1 : 1;
+          ear.rotation.z = -sign * 0.38 + Math.sin(animTime * speed + idx) * 0.08;
+        });
+
+        if (parts.flameTip) {
+          const s = 1 + Math.sin(animTime * 22) * 0.18;
+          parts.flameTip.scale.set(s, s * 1.1, s);
+        }
+
+        // Orientación suave hacia la dirección de avance en el plano XZ
+        const targetAngles = {
+          DOWN: 0,
+          RIGHT: Math.PI / 2,
+          UP: Math.PI,
+          LEFT: -Math.PI / 2
+        };
+        const targetRotY = targetAngles[dir] ?? 0;
+        let diff = targetRotY - parts.root.rotation.y;
+        while (diff > Math.PI) diff -= Math.PI * 2;
+        while (diff < -Math.PI) diff += Math.PI * 2;
+        parts.root.rotation.y += diff * 0.28;
+
+        // Parpadeo de invulnerabilidad
+        const blinkHide = invulnTimer > 0 && Math.floor(invulnTimer * 16) % 2 === 0;
+        parts.root.visible = !blinkHide;
+      }
+
+      /* --------------------------------------------------------------------------
+         4. PREVISUALIZACIÓN 3D EN LAS TARJETAS DEL MENÚ DE SELECCIÓN
+         -------------------------------------------------------------------------- */
+      const previewCanvases = {
+        volt: document.getElementById('prev-volt').getContext('2d'),
+        pyro: document.getElementById('prev-pyro').getContext('2d'),
+        hydro: document.getElementById('prev-hydro').getContext('2d'),
+        brawn: document.getElementById('prev-brawn').getContext('2d')
+      };
+
+      const previewRenderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+      previewRenderer.setSize(120, 120);
+      const previewScene = new THREE.Scene();
+      const previewCam = new THREE.PerspectiveCamera(38, 1, 0.1, 20);
+      previewCam.position.set(0, 0.65, 1.95);
+      previewCam.lookAt(0, 0.42, 0);
+
+      previewScene.add(new THREE.AmbientLight(0xffffff, 0.75));
+      const prevDirLight = new THREE.DirectionalLight(0xfffbeb, 0.95);
+      prevDirLight.position.set(2, 4, 3);
+      previewScene.add(prevDirLight);
+
+      const previewModels = {
+        volt: createFighter3DMesh('volt'),
+        pyro: createFighter3DMesh('pyro'),
+        hydro: createFighter3DMesh('hydro'),
+        brawn: createFighter3DMesh('brawn')
+      };
+      Object.values(previewModels).forEach((m) => {
+        m.root.visible = false;
+        previewScene.add(m.root);
+      });
+
+      function renderSelectionPreviews(timeSec) {
+        Object.entries(previewCanvases).forEach(([type, pctx]) => {
+          Object.values(previewModels).forEach((m) => { m.root.visible = false; });
+          const model = previewModels[type];
+          model.root.visible = true;
+          animateFighter3D(model, timeSec, true, 'DOWN', 0);
+          model.root.rotation.y = Math.sin(timeSec * 1.8) * 0.55;
+
+          previewRenderer.render(previewScene, previewCam);
+          pctx.clearRect(0, 0, 120, 120);
+          pctx.drawImage(previewRenderer.domElement, 0, 0, 120, 120);
+        });
+      }
+
+      /* --------------------------------------------------------------------------
+         5. ESTADO DE LA CUADRÍCULA BOMBERMAN (13 COLUMNAS x 11 FILAS)
+         -------------------------------------------------------------------------- */
+      const COLS = 13;
+      const ROWS = 11;
+      // Tipos de celda: 0 = Suelo libre, 1 = Muro indestructible, 2 = Bloque destructible
+      let grid = [];
+      let powerups = []; // { col, row, type: 'BOMB'|'FLAME'|'SPEED'|'KICK'|'LIFE' }
+      let bombs = [];    // { id, owner, col, row, x, y, timer, range, vx, vy, passableOwners: Set }
+      let explosions = []; // { col, row, timer, maxTimer, element }
+      let particles = [];
+      let floatingLabels = [];
+
+      let selectedChar = 'volt';
+      let currentStageIdx = 0;
+      let gameState = 'MENU'; // 'MENU' | 'PLAYING' | 'PAUSED' | 'STAGE_END'
+      let stageTimer = 180;
+      let timerAccum = 0;
+      let screenShake = 0;
+      let bombIdCounter = 1;
+
+      let fighters = [];
+      let humanPlayer = null;
+
+      /* --------------------------------------------------------------------------
+         6. CONTROLADOR TÁCTIL MULTITOUCH ANDROID + TECLADO PC
+         -------------------------------------------------------------------------- */
+      const controls = {
+        up: false,
+        down: false,
+        left: false,
+        right: false,
+        bombPressed: false,
+        dashPressed: false
+      };
+
+      const dpadContainer = document.getElementById('dpad-container');
+      const dpadEls = {
+        up: document.getElementById('key-up'),
+        down: document.getElementById('key-down'),
+        left: document.getElementById('key-left'),
+        right: document.getElementById('key-right')
+      };
+      let dpadTouchId = null;
+
+      function updateDpadTouch(touch) {
+        const rect = dpadContainer.getBoundingClientRect();
+        const cx = rect.left + rect.width / 2;
+        const cy = rect.top + rect.height / 2;
+        const dx = touch.clientX - cx;
+        const dy = touch.clientY - cy;
+        const dead = rect.width * 0.13;
+
+        controls.up = false;
+        controls.down = false;
+        controls.left = false;
+        controls.right = false;
+
+        // En Bomberman el movimiento es ortogonal (eje dominante) para precisión total en pasillos
+        if (Math.hypot(dx, dy) > dead) {
+          if (Math.abs(dx) > Math.abs(dy)) {
+            if (dx < 0) controls.left = true;
+            else controls.right = true;
+          } else {
+            if (dy < 0) controls.up = true;
+            else controls.down = true;
+          }
+        }
+
+        dpadEls.up.classList.toggle('pressed', controls.up);
+        dpadEls.down.classList.toggle('pressed', controls.down);
+        dpadEls.left.classList.toggle('pressed', controls.left);
+        dpadEls.right.classList.toggle('pressed', controls.right);
+      }
+
+      function clearDpad() {
+        dpadTouchId = null;
+        controls.up = controls.down = controls.left = controls.right = false;
+        Object.values(dpadEls).forEach((el) => el.classList.remove('pressed'));
+      }
+
+      dpadContainer.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        audio.init();
+        for (let i = 0; i < e.changedTouches.length; i++) {
+          const t = e.changedTouches[i];
+          if (dpadTouchId === null) {
+            dpadTouchId = t.identifier;
+            updateDpadTouch(t);
+          }
+        }
+      }, { passive: false });
+
+      dpadContainer.addEventListener('touchmove', (e) => {
+        e.preventDefault();
+        for (let i = 0; i < e.changedTouches.length; i++) {
+          const t = e.changedTouches[i];
+          if (t.identifier === dpadTouchId) {
+            updateDpadTouch(t);
+          }
+        }
+      }, { passive: false });
+
+      const onDpadRelease = (e) => {
+        e.preventDefault();
+        for (let i = 0; i < e.changedTouches.length; i++) {
+          if (e.changedTouches[i].identifier === dpadTouchId) {
+            clearDpad();
+          }
+        }
+      };
+      dpadContainer.addEventListener('touchend', onDpadRelease, { passive: false });
+      dpadContainer.addEventListener('touchcancel', onDpadRelease, { passive: false });
+
+      // Soporte clic con ratón en la cruceta para pruebas en navegador
+      Object.entries(dpadEls).forEach(([dir, el]) => {
+        el.addEventListener('mousedown', () => {
+          controls[dir] = true;
+          el.classList.add('pressed');
+        });
+        el.addEventListener('mouseup', () => {
+          controls[dir] = false;
+          el.classList.remove('pressed');
+        });
+        el.addEventListener('mouseleave', () => {
+          controls[dir] = false;
+          el.classList.remove('pressed');
+        });
+      });
+
+      function bindCircleButton(btnId, onTrigger) {
+        const btn = document.getElementById(btnId);
+        const start = (e) => {
+          e.preventDefault();
+          audio.init();
+          btn.classList.add('pressed');
+          onTrigger();
+        };
+        const end = (e) => {
+          e.preventDefault();
+          btn.classList.remove('pressed');
+        };
+        btn.addEventListener('touchstart', start, { passive: false });
+        btn.addEventListener('touchend', end, { passive: false });
+        btn.addEventListener('touchcancel', end, { passive: false });
+        btn.addEventListener('mousedown', start);
+        btn.addEventListener('mouseup', end);
+        btn.addEventListener('mouseleave', end);
+      }
+
+      bindCircleButton('btn-bomb', () => {
+        controls.bombPressed = true;
+      });
+      bindCircleButton('btn-dash', () => {
+        controls.dashPressed = true;
+      });
+
+      window.addEventListener('keydown', (e) => {
+        if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) {
+          e.preventDefault();
+        }
+        if (e.repeat) return;
+        audio.init();
+        switch (e.code) {
+          case 'ArrowUp': case 'KeyW': controls.up = true; break;
+          case 'ArrowDown': case 'KeyS': controls.down = true; break;
+          case 'ArrowLeft': case 'KeyA': controls.left = true; break;
+          case 'ArrowRight': case 'KeyD': controls.right = true; break;
+          case 'Space': case 'KeyZ': case 'KeyJ': controls.bombPressed = true; break;
+          case 'KeyX': case 'KeyK': case 'ShiftLeft': controls.dashPressed = true; break;
+        }
+      });
+
+      window.addEventListener('keyup', (e) => {
+        switch (e.code) {
+          case 'ArrowUp': case 'KeyW': controls.up = false; break;
+          case 'ArrowDown': case 'KeyS': controls.down = false; break;
+          case 'ArrowLeft': case 'KeyA': controls.left = false; break;
+          case 'ArrowRight': case 'KeyD': controls.right = false; break;
+        }
+      });
+
+      /* --------------------------------------------------------------------------
+         7. CLASE LUCHADOR BOMBERMAN (3 VIDAS, POTENCIADORES Y MOVIMIENTO EN REJILLA)
+         -------------------------------------------------------------------------- */
+      class BomberFighter {
+        constructor(id, type, isHuman, spawnCol, spawnRow) {
+          this.id = id;
+          this.type = type;
+          this.isHuman = isHuman;
+          this.spawnCol = spawnCol;
+          this.spawnRow = spawnRow;
+
+          this.x = spawnCol + 0.5;
+          this.y = spawnRow + 0.5;
+          this.dir = 'DOWN';
+          this.animTime = Math.random() * 4;
+          this.isMoving = false;
+
+          // Cada jugador tiene 3 vidas
+          this.lives = 3;
+          this.alive = true;
+          this.invulnTimer = 0;
+          this.dashTimer = 0;
+          this.dashCooldown = 0;
+
+          // Estadísticas base + ventajas únicas de cada personaje
+          this.maxBombs = type === 'brawn' ? 2 : 1;
+          this.flameRange = type === 'pyro' ? 3 : 2;
+          this.baseSpeed = type === 'volt' ? 4.35 : 3.85;
+          this.canKick = type === 'hydro';
+
+          // Variables de decisión IA
+          this.aiTargetDir = null;
+          this.aiThinkTimer = 0.1;
+          this.aiBombCooldown = 1.2;
+        }
+
+        get col() {
+          return Math.floor(this.x);
+        }
+
+        get row() {
+          return Math.floor(this.y);
+        }
+
+        get speed() {
+          return this.dashTimer > 0 ? this.baseSpeed * 1.55 : this.baseSpeed;
+        }
+
+        activeBombsCount() {
+          return bombs.filter((b) => b.owner === this).length;
+        }
+
+        respawnAtCorner() {
+          this.x = this.spawnCol + 0.5;
+          this.y = this.spawnRow + 0.5;
+          this.invulnTimer = 2.4;
+          this.dashTimer = 0;
+        }
+      }
+
+      /* --------------------------------------------------------------------------
+         8. GENERACIÓN DE ARENA, COLISIONES, BOMBAS Y REACCIONES EN CADENA
+         -------------------------------------------------------------------------- */
+      function initStage(stageIdx) {
+        currentStageIdx = stageIdx;
+        const stage = STAGES[stageIdx];
+
+        grid = [];
+        powerups = [];
+        bombs = [];
+        explosions = [];
+        particles = [];
+        floatingLabels = [];
+        stageTimer = 180;
+        timerAccum = 0;
+        screenShake = 0;
+
+        // Esquinas seguras para los 4 posibles jugadores (formato [col, row])
+        const corners = [
+          { col: 1, row: 1 },
+          { col: COLS - 2, row: ROWS - 2 },
+          { col: COLS - 2, row: 1 },
+          { col: 1, row: ROWS - 2 }
+        ];
+
+        const isSafeCornerZone = (c, r) => {
+          return corners.some((sp) => Math.abs(sp.col - c) + Math.abs(sp.row - r) <= 1);
+        };
+
+        // Construir tablero 13x11
+        for (let r = 0; r < ROWS; r++) {
+          const rowArr = [];
+          for (let c = 0; c < COLS; c++) {
+            if (r === 0 || r === ROWS - 1 || c === 0 || c === COLS - 1) {
+              rowArr.push(1); // Muro perimetral indestructible
+            } else if (r % 2 === 0 && c % 2 === 0) {
+              rowArr.push(1); // Pilares interiores fijos estilo Bomberman
+            } else if (isSafeCornerZone(c, r)) {
+              rowArr.push(0); // Zona inicial despejada
+            } else {
+              rowArr.push(Math.random() < 0.68 ? 2 : 0); // 68% bloques destructibles
+            }
+          }
+          grid.push(rowArr);
+        }
+
+        // Crear luchadores (Jugador humano + rivales de la fase)
+        fighters = [];
+        humanPlayer = new BomberFighter('p1', selectedChar, true, corners[0].col, corners[0].row);
+        fighters.push(humanPlayer);
+
+        stage.rivals.forEach((rivalType, idx) => {
+          const sp = corners[(idx + 1) % corners.length];
+          fighters.push(new BomberFighter(`ai_${idx}`, rivalType, false, sp.col, sp.row));
+        });
+
+        updateHudUI();
+        gameState = 'PLAYING';
+        audio.startMusic(stage.theme);
+      }
+
+      function spawnParticles(gx, gy, color, count = 12) {
+        for (let i = 0; i < count; i++) {
+          const ang = Math.random() * Math.PI * 2;
+          const spd = 1.5 + Math.random() * 4.5;
+          particles.push({
+            x: gx,
+            y: gy,
+            vx: Math.cos(ang) * spd,
+            vy: Math.sin(ang) * spd,
+            color,
+            size: 2.5 + Math.random() * 4,
+            life: 0.35 + Math.random() * 0.3,
+            maxLife: 0.65
+          });
+        }
+      }
+
+      function spawnFloatingLabel(gx, gy, text, color = '#fef08a') {
+        floatingLabels.push({
+          x: gx,
+          y: gy,
+          text,
+          color,
+          life: 1.0
+        });
+      }
+
+      function isCellBlockedForFighter(c, r, fighter) {
+        if (c < 0 || c >= COLS || r < 0 || r >= ROWS) return true;
+        if (grid[r][c] !== 0) return true;
+
+        // Comprobar bombas en la celda
+        const bomb = bombs.find((b) => Math.round(b.x - 0.5) === c && Math.round(b.y - 0.5) === r);
+        if (bomb) {
+          // El luchador puede salir de una bomba recién colocada bajo sus pies
+          if (bomb.passableOwners.has(fighter.id)) {
+            return false;
+          }
+          // Si tiene habilidad de patear bombas, la impulsa por el pasillo
+          if (fighter.canKick && bomb.vx === 0 && bomb.vy === 0) {
+            kickBomb(bomb, fighter.dir);
+          }
+          return true;
+        }
+        return false;
+      }
+
+      function kickBomb(bomb, dir) {
+        const speed = 8.5;
+        if (dir === 'UP') { bomb.vx = 0; bomb.vy = -speed; }
+        else if (dir === 'DOWN') { bomb.vx = 0; bomb.vy = speed; }
+        else if (dir === 'LEFT') { bomb.vx = -speed; bomb.vy = 0; }
+        else if (dir === 'RIGHT') { bomb.vx = speed; bomb.vy = 0; }
+        audio.sfxKick();
+      }
+
+      function moveFighter(fighter, dir, dt) {
+        fighter.dir = dir;
+        fighter.isMoving = true;
+
+        const step = fighter.speed * dt;
+        const centerX = fighter.col + 0.5;
+        const centerY = fighter.row + 0.5;
+        const alignTolerance = 0.44; // Asistencia de giro en esquinas estilo Bomberman
+
+        if (dir === 'LEFT' || dir === 'RIGHT') {
+          const sign = dir === 'LEFT' ? -1 : 1;
+          const nextCol = fighter.col + sign;
+
+          // Deslizar suavemente hacia el centro de la fila para no atascarse en pilares
+          const dy = centerY - fighter.y;
+          if (Math.abs(dy) > 0.02 && Math.abs(dy) <= alignTolerance) {
+            if (!isCellBlockedForFighter(nextCol, fighter.row, fighter)) {
+              fighter.y += Math.sign(dy) * Math.min(Math.abs(dy), step * 1.15);
+            }
+          }
+
+          let targetX = fighter.x + sign * step;
+          if (isCellBlockedForFighter(nextCol, fighter.row, fighter)) {
+            const limitX = sign < 0 ? fighter.col + 0.48 : fighter.col + 0.52;
+            if ((sign < 0 && targetX < limitX) || (sign > 0 && targetX > limitX)) {
+              targetX = limitX;
+            }
+          }
+          fighter.x = targetX;
+        } else if (dir === 'UP' || dir === 'DOWN') {
+          const sign = dir === 'UP' ? -1 : 1;
+          const nextRow = fighter.row + sign;
+
+          // Deslizar suavemente hacia el centro de la columna
+          const dx = centerX - fighter.x;
+          if (Math.abs(dx) > 0.02 && Math.abs(dx) <= alignTolerance) {
+            if (!isCellBlockedForFighter(fighter.col, nextRow, fighter)) {
+              fighter.x += Math.sign(dx) * Math.min(Math.abs(dx), step * 1.15);
+            }
+          }
+
+          let targetY = fighter.y + sign * step;
+          if (isCellBlockedForFighter(fighter.col, nextRow, fighter)) {
+            const limitY = sign < 0 ? fighter.row + 0.48 : fighter.row + 0.52;
+            if ((sign < 0 && targetY < limitY) || (sign > 0 && targetY > limitY)) {
+              targetY = limitY;
+            }
+          }
+          fighter.y = targetY;
+        }
+      }
+
+      function placeBomb(fighter) {
+        if (!fighter.alive) return false;
+        if (fighter.activeBombsCount() >= fighter.maxBombs) return false;
+
+        const c = fighter.col;
+        const r = fighter.row;
+        // Evitar poner dos bombas exactamente en la misma casilla
+        if (bombs.some((b) => Math.round(b.x - 0.5) === c && Math.round(b.y - 0.5) === r)) {
+          return false;
+        }
+
+        const passable = new Set();
+        fighters.forEach((f) => {
+          if (f.alive && f.col === c && f.row === r) {
+            passable.add(f.id);
+          }
+        });
+
+        bombs.push({
+          id: bombIdCounter++,
+          owner: fighter,
+          element: fighter.type,
+          x: c + 0.5,
+          y: r + 0.5,
+          timer: 2.35,
+          range: fighter.flameRange,
+          vx: 0,
+          vy: 0,
+          passableOwners: passable
+        });
+
+        audio.sfxPlaceBomb();
+        return true;
+      }
+
+      function detonateBomb(bomb) {
+        const idx = bombs.indexOf(bomb);
+        if (idx !== -1) bombs.splice(idx, 1);
+
+        const originC = Math.round(bomb.x - 0.5);
+        const originR = Math.round(bomb.y - 0.5);
+
+        audio.sfxExplosion();
+        screenShake = Math.min(16, screenShake + 7);
+
+        const addFlameCell = (c, r) => {
+          explosions.push({
+            col: c,
+            row: r,
+            timer: 0.48,
+            maxTimer: 0.48,
+            element: bomb.element
+          });
+          const pColor = bomb.element === 'volt' ? '#fef08a' : bomb.element === 'hydro' ? '#38bdf8' : '#fb923c';
+          spawnParticles(c + 0.5, r + 0.5, pColor, 6);
+
+          // Reacción en cadena si alcanza otra bomba
+          const chainBomb = bombs.find(
+            (other) => Math.round(other.x - 0.5) === c && Math.round(other.y - 0.5) === r
+          );
+          if (chainBomb) {
+            detonateBomb(chainBomb);
+          }
+        };
+
+        // Centro de la explosión en cruz
+        addFlameCell(originC, originR);
+
+        // 4 brazos cardinales de la explosión
+        const dirs = [
+          { dc: 0, dr: -1 },
+          { dc: 0, dr: 1 },
+          { dc: -1, dr: 0 },
+          { dc: 1, dr: 0 }
+        ];
+
+        dirs.forEach(({ dc, dr }) => {
+          for (let step = 1; step <= bomb.range; step++) {
+            const nc = originC + dc * step;
+            const nr = originR + dr * step;
+            if (nc < 0 || nc >= COLS || nr < 0 || nr >= ROWS) break;
+
+            const cell = grid[nr][nc];
+            if (cell === 1) {
+              // Muro indestructible detiene la llama
+              break;
+            } else if (cell === 2) {
+              // Bloque destructible se rompe, libera posible potenciador y detiene este brazo
+              grid[nr][nc] = 0;
+              addFlameCell(nc, nr);
+              maybeSpawnPowerup(nc, nr);
+              break;
+            } else {
+              // Si había un potenciador suelto en el suelo, la explosión lo quema
+              const puIdx = powerups.findIndex((p) => p.col === nc && p.row === nr);
+              if (puIdx !== -1) powerups.splice(puIdx, 1);
+              addFlameCell(nc, nr);
+            }
+          }
+        });
+      }
+
+      function maybeSpawnPowerup(c, r) {
+        if (Math.random() > 0.42) return; // 42% probabilidad de aparición
+        const roll = Math.random();
+        let type = 'FLAME';
+        if (roll < 0.30) type = 'BOMB';
+        else if (roll < 0.60) type = 'FLAME';
+        else if (roll < 0.82) type = 'SPEED';
+        else if (roll < 0.94) type = 'KICK';
+        else type = 'LIFE';
+
+        powerups.push({ col: c, row: r, type, bobTimer: Math.random() * 5 });
+      }
+
+      function damageFighter(fighter) {
+        if (!fighter.alive || fighter.invulnTimer > 0) return;
+
+        fighter.lives -= 1;
+        audio.sfxHurt();
+        screenShake = 12;
+        spawnParticles(fighter.x, fighter.y, '#ef4444', 18);
+
+        if (fighter.lives <= 0) {
+          fighter.lives = 0;
+          fighter.alive = false;
+          spawnFloatingLabel(fighter.x, fighter.y - 0.3, '¡K.O.!', '#f87171');
+        } else {
+          spawnFloatingLabel(fighter.x, fighter.y - 0.3, `-1 VIDA (${fighter.lives}❤️)`, '#fca5a5');
+          fighter.respawnAtCorner();
+        }
+
+        updateHudUI();
+        checkStageVictoryOrDefeat();
+      }
+
+      function checkStageVictoryOrDefeat() {
+        if (gameState !== 'PLAYING') return;
+        if (!humanPlayer.alive) {
+          finishStage(false);
+          return;
+        }
+        const rivalsAlive = fighters.filter((f) => !f.isHuman && f.alive).length;
+        if (rivalsAlive === 0) {
+          finishStage(true);
+        }
+      }
+
+      /* --------------------------------------------------------------------------
+         9. INTELIGENCIA ARTIFICIAL TÁCTICA PARA RIVALES BOMBERMAN
+         -------------------------------------------------------------------------- */
+      function buildDangerGrid() {
+        const danger = Array.from({ length: ROWS }, () => Array(COLS).fill(false));
+
+        // Celdas actualmente en llamas
+        explosions.forEach((ex) => {
+          if (ex.row >= 0 && ex.row < ROWS && ex.col >= 0 && ex.col < COLS) {
+            danger[ex.row][ex.col] = true;
+          }
+        });
+
+        // Celdas amenazadas por bombas activas
+        bombs.forEach((b) => {
+          const bc = Math.round(b.x - 0.5);
+          const br = Math.round(b.y - 0.5);
+          danger[br][bc] = true;
+          const dirs = [[0, -1], [0, 1], [-1, 0], [1, 0]];
+          dirs.forEach(([dc, dr]) => {
+            for (let s = 1; s <= b.range; s++) {
+              const nc = bc + dc * s;
+              const nr = br + dr * s;
+              if (nc < 0 || nc >= COLS || nr < 0 || nr >= ROWS) break;
+              if (grid[nr][nc] !== 0) break;
+              danger[nr][nc] = true;
+            }
+          });
+        });
+
+        return danger;
+      }
+
+      function findSafeStepDirection(ai, dangerGrid) {
+        const startC = ai.col;
+        const startR = ai.row;
+        const dirs = [
+          { name: 'UP', dc: 0, dr: -1 },
+          { name: 'DOWN', dc: 0, dr: 1 },
+          { name: 'LEFT', dc: -1, dr: 0 },
+          { name: 'RIGHT', dc: 1, dr: 0 }
+        ];
+
+        // Búsqueda BFS corta para encontrar la primera dirección hacia una casilla segura
+        const queue = [{ c: startC, r: startR, firstDir: null, dist: 0 }];
+        const visited = new Set([`${startC},${startR}`]);
+
+        while (queue.length > 0) {
+          const curr = queue.shift();
+          if (!dangerGrid[curr.r][curr.c] && curr.firstDir) {
+            return curr.firstDir;
+          }
+          if (curr.dist >= 5) continue;
+
+          // Mezclar orden ligeramente para naturalidad
+          const shuffled = [...dirs].sort(() => Math.random() - 0.5);
+          for (const d of shuffled) {
+            const nc = curr.c + d.dc;
+            const nr = curr.r + d.dr;
+            const key = `${nc},${nr}`;
+            if (visited.has(key)) continue;
+            if (nc < 1 || nc >= COLS - 1 || nr < 1 || nr >= ROWS - 1) continue;
+            if (grid[nr][nc] !== 0) continue;
+            const hasBomb = bombs.some((b) => Math.round(b.x - 0.5) === nc && Math.round(b.y - 0.5) === nr);
+            if (hasBomb) continue;
+
+            visited.add(key);
+            queue.push({
+              c: nc,
+              r: nr,
+              firstDir: curr.firstDir || d.name,
+              dist: curr.dist + 1
+            });
+          }
+        }
+        return null;
+      }
+
+      function updateAIFighter(ai, dangerGrid, dt) {
+        if (!ai.alive) return;
+        ai.aiThinkTimer -= dt;
+        ai.aiBombCooldown -= dt;
+
+        const c = ai.col;
+        const r = ai.row;
+        const inDanger = dangerGrid[r][c];
+
+        if (inDanger) {
+          // Prioridad absoluta: huir de la zona de explosión
+          const safeDir = findSafeStepDirection(ai, dangerGrid);
+          if (safeDir) {
+            ai.aiTargetDir = safeDir;
+          }
+        } else if (ai.aiThinkTimer <= 0) {
+          ai.aiThinkTimer = Math.max(0.14, 0.34 - STAGES[currentStageIdx].aiSkill * 0.04);
+
+          const dirs = [
+            { name: 'UP', dc: 0, dr: -1 },
+            { name: 'DOWN', dc: 0, dr: 1 },
+            { name: 'LEFT', dc: -1, dr: 0 },
+            { name: 'RIGHT', dc: 1, dr: 0 }
+          ];
+
+          // Filtrar direcciones transitables y seguras
+          const safeDirs = dirs.filter((d) => {
+            const nc = c + d.dc;
+            const nr = r + d.dr;
+            if (nc < 1 || nc >= COLS - 1 || nr < 1 || nr >= ROWS - 1) return false;
+            if (grid[nr][nc] !== 0 || dangerGrid[nr][nc]) return false;
+            const hasBomb = bombs.some((b) => Math.round(b.x - 0.5) === nc && Math.round(b.y - 0.5) === nr);
+            return !hasBomb;
+          });
+
+          // Comprobar si conviene poner bomba (cerca de bloque destructible o del jugador)
+          const adjacentCrate = dirs.some((d) => grid[r + d.dr]?.[c + d.dc] === 2);
+          const distToPlayer = Math.hypot(humanPlayer.x - ai.x, humanPlayer.y - ai.y);
+          if (
+            ai.aiBombCooldown <= 0 &&
+            safeDirs.length > 0 &&
+            (adjacentCrate || distToPlayer < 2.4)
+          ) {
+            if (placeBomb(ai)) {
+              ai.aiBombCooldown = 2.6;
+              ai.aiTargetDir = safeDirs[Math.floor(Math.random() * safeDirs.length)].name;
+              return;
+            }
+          }
+
+          // Elegir dirección hacia potenciador cercano, jugador o exploración
+          if (safeDirs.length > 0) {
+            let bestDir = safeDirs[Math.floor(Math.random() * safeDirs.length)];
+            let bestScore = -999;
+
+            safeDirs.forEach((d) => {
+              const nc = c + d.dc;
+              const nr = r + d.dr;
+              let score = Math.random() * 1.5;
+
+              // Atracción hacia potenciadores
+              powerups.forEach((pu) => {
+                const dist = Math.abs(pu.col - nc) + Math.abs(pu.row - nr);
+                score += Math.max(0, 6 - dist);
+              });
+
+              // Atracción moderada hacia el jugador
+              if (humanPlayer.alive) {
+                const pDist = Math.abs(humanPlayer.col - nc) + Math.abs(humanPlayer.row - nr);
+                score += Math.max(0, 4 - pDist * 0.4);
+              }
+
+              if (score > bestScore) {
+                bestScore = score;
+                bestDir = d;
+              }
+            });
+            ai.aiTargetDir = bestDir.name;
+          } else {
+            ai.aiTargetDir = null;
+          }
+        }
+
+        if (ai.aiTargetDir) {
+          moveFighter(ai, ai.aiTargetDir, dt);
+        } else {
+          ai.isMoving = false;
+        }
+      }
+
+      /* --------------------------------------------------------------------------
+         10. ACTUALIZACIÓN GENERAL DEL JUEGO (60 FPS)
+         -------------------------------------------------------------------------- */
+      function updateSimulation(dt) {
+        if (gameState !== 'PLAYING') return;
+
+        if (screenShake > 0) {
+          screenShake = Math.max(0, screenShake - dt * 45);
+        }
+
+        // Reloj de la fase
+        timerAccum += dt;
+        if (timerAccum >= 1) {
+          timerAccum -= 1;
+          stageTimer = Math.max(0, stageTimer - 1);
+          document.getElementById('hud-timer').textContent = String(stageTimer);
+          if (stageTimer === 0) {
+            damageFighter(humanPlayer);
+            stageTimer = 60;
+          }
+        }
+
+        // Controles del jugador humano
+        if (humanPlayer && humanPlayer.alive) {
+          humanPlayer.isMoving = false;
+          if (controls.dashPressed) {
+            controls.dashPressed = false;
+            if (humanPlayer.dashCooldown <= 0) {
+              humanPlayer.dashTimer = 0.45;
+              humanPlayer.dashCooldown = 1.6;
+              audio.sfxKick();
+              spawnParticles(humanPlayer.x, humanPlayer.y, '#38bdf8', 8);
+            }
+          }
+
+          if (controls.up) moveFighter(humanPlayer, 'UP', dt);
+          else if (controls.down) moveFighter(humanPlayer, 'DOWN', dt);
+          else if (controls.left) moveFighter(humanPlayer, 'LEFT', dt);
+          else if (controls.right) moveFighter(humanPlayer, 'RIGHT', dt);
+
+          if (controls.bombPressed) {
+            controls.bombPressed = false;
+            placeBomb(humanPlayer);
+          }
+        }
+
+        // Actualizar bombas (temporizador, desplazamiento por patada y paso de dueño)
+        for (let i = bombs.length - 1; i >= 0; i--) {
+          const b = bombs[i];
+          b.timer -= dt;
+
+          // Actualizar passableOwners: cuando el jugador sale de la celda, la bomba se vuelve sólida
+          fighters.forEach((f) => {
+            if (b.passableOwners.has(f.id)) {
+              if (Math.hypot(f.x - b.x, f.y - b.y) > 0.78) {
+                b.passableOwners.delete(f.id);
+              }
+            }
+          });
+
+          // Si fue pateada, deslizar hasta chocar con muro, bloque, luchador u otra bomba
+          if (b.vx !== 0 || b.vy !== 0) {
+            const nextX = b.x + b.vx * dt;
+            const nextY = b.y + b.vy * dt;
+            const nc = Math.floor(nextX + Math.sign(b.vx) * 0.35);
+            const nr = Math.floor(nextY + Math.sign(b.vy) * 0.35);
+
+            const hitWall = nc < 1 || nc >= COLS - 1 || nr < 1 || nr >= ROWS - 1 || grid[nr][nc] !== 0;
+            const hitOtherBomb = bombs.some(
+              (o) => o !== b && Math.round(o.x - 0.5) === nc && Math.round(o.y - 0.5) === nr
+            );
+            const hitFighter = fighters.some(
+              (f) => f.alive && f !== b.owner && Math.hypot(f.x - nextX, f.y - nextY) < 0.65
+            );
+
+            if (hitWall || hitOtherBomb || hitFighter) {
+              b.x = Math.floor(b.x) + 0.5;
+              b.y = Math.floor(b.y) + 0.5;
+              b.vx = 0;
+              b.vy = 0;
+            } else {
+              b.x = nextX;
+              b.y = nextY;
+            }
+          }
+
+          if (b.timer <= 0) {
+            detonateBomb(b);
+          }
+        }
+
+        // Actualizar IA de rivales
+        const dangerGrid = buildDangerGrid();
+        fighters.forEach((f) => {
+          f.animTime += dt;
+          if (f.invulnTimer > 0) f.invulnTimer = Math.max(0, f.invulnTimer - dt);
+          if (f.dashTimer > 0) f.dashTimer = Math.max(0, f.dashTimer - dt);
+          if (f.dashCooldown > 0) f.dashCooldown = Math.max(0, f.dashCooldown - dt);
+
+          if (!f.isHuman) {
+            updateAIFighter(f, dangerGrid, dt);
+          }
+
+          // Recoger potenciadores en la celda actual
+          if (f.alive) {
+            for (let p = powerups.length - 1; p >= 0; p--) {
+              const pu = powerups[p];
+              if (pu.col === f.col && pu.row === f.row) {
+                powerups.splice(p, 1);
+                applyPowerup(f, pu.type);
+              }
+            }
+          }
+        });
+
+        // Actualizar llamas de explosión y comprobar daño a luchadores
+        for (let i = explosions.length - 1; i >= 0; i--) {
+          const ex = explosions[i];
+          ex.timer -= dt;
+
+          fighters.forEach((f) => {
+            if (f.alive && f.col === ex.col && f.row === ex.row) {
+              damageFighter(f);
+            }
+          });
+
+          if (ex.timer <= 0) {
+            explosions.splice(i, 1);
+          }
+        }
+
+        // Actualizar animación de potenciadores, partículas y textos flotantes
+        powerups.forEach((pu) => { pu.bobTimer += dt; });
+
+        for (let i = particles.length - 1; i >= 0; i--) {
+          const pt = particles[i];
+          pt.x += pt.vx * dt;
+          pt.y += pt.vy * dt;
+          pt.life -= dt;
+          if (pt.life <= 0) particles.splice(i, 1);
+        }
+
+        for (let i = floatingLabels.length - 1; i >= 0; i--) {
+          const fl = floatingLabels[i];
+          fl.y -= 0.9 * dt;
+          fl.life -= dt;
+          if (fl.life <= 0) floatingLabels.splice(i, 1);
+        }
+      }
+
+      function applyPowerup(fighter, type) {
+        if (type === 'BOMB') {
+          fighter.maxBombs = Math.min(6, fighter.maxBombs + 1);
+          if (fighter.isHuman) spawnFloatingLabel(fighter.x, fighter.y - 0.3, '+1 BOMBA 💣', '#fde047');
+        } else if (type === 'FLAME') {
+          fighter.flameRange = Math.min(7, fighter.flameRange + 1);
+          if (fighter.isHuman) spawnFloatingLabel(fighter.x, fighter.y - 0.3, '+1 LLAMA 🔥', '#fb923c');
+        } else if (type === 'SPEED') {
+          fighter.baseSpeed = Math.min(6.4, fighter.baseSpeed + 0.45);
+          if (fighter.isHuman) spawnFloatingLabel(fighter.x, fighter.y - 0.3, '+VELOCIDAD ⚡', '#38bdf8');
+        } else if (type === 'KICK') {
+          fighter.canKick = true;
+          if (fighter.isHuman) spawnFloatingLabel(fighter.x, fighter.y - 0.3, '¡PATEAR BOMBAS! 👟', '#4ade80');
+        } else if (type === 'LIFE') {
+          fighter.lives = Math.min(4, fighter.lives + 1);
+          if (fighter.isHuman) spawnFloatingLabel(fighter.x, fighter.y - 0.3, '+1 VIDA EXTRA ❤️', '#f43f5e');
+        }
+
+        if (fighter.isHuman) {
+          audio.sfxPowerup();
+          updateHudUI();
+        }
+      }
+
+      function updateHudUI() {
+        if (!humanPlayer) return;
+        const hearts = humanPlayer.lives > 0 ? '❤️'.repeat(humanPlayer.lives) : '💀';
+        document.getElementById('hud-lives').textContent = hearts;
+        const spdLevel = Math.round((humanPlayer.baseSpeed - 3.4) / 0.45);
+        const kickIcon = humanPlayer.canKick ? ' 👟' : '';
+        document.getElementById('hud-stats').textContent =
+          `💣${humanPlayer.maxBombs} 🔥${humanPlayer.flameRange} ⚡${Math.max(1, spdLevel)}${kickIcon}`;
+        document.getElementById('hud-stage').textContent = STAGES[currentStageIdx].name;
+        const enemiesLeft = fighters.filter((f) => !f.isHuman && f.alive).length;
+        document.getElementById('hud-enemies').textContent = String(enemiesLeft);
+      }
+
+      /* --------------------------------------------------------------------------
+         11. MOTOR GRÁFICO 3D CON THREE.JS (ESCENARIO, JUGADORES, BOMBAS Y CÁMARA)
+         -------------------------------------------------------------------------- */
+      const canvas = document.getElementById('bomber-canvas');
+      const playfieldArea = document.getElementById('playfield-area');
+
+      const renderer = new THREE.WebGLRenderer({
+        canvas,
+        antialias: true,
+        powerPreference: 'high-performance'
+      });
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      renderer.outputEncoding = THREE.sRGBEncoding;
+
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x090d16);
+      scene.fog = new THREE.FogExp2(0x090d16, 0.025);
+
+      const camera = new THREE.PerspectiveCamera(44, 13 / 11, 0.5, 80);
+
+      // Parámetros de cámara orbital 3D (controlable con ratón, pantalla táctil y botón de vista)
+      const camControl = {
+        theta: 0,           // Ángulo horizontal
+        phi: 0.78,          // Inclinación vertical (radianes desde el eje Y)
+        distance: 15.6,     // Distancia al centro del tablero
+        presetIdx: 0,
+        isDragging: false,
+        lastX: 0,
+        lastY: 0,
+        touchId: null
+      };
+
+      const CAM_PRESETS = [
+        { theta: 0, phi: 0.78, distance: 15.6, label: '🎥 VISTA 3D' },
+        { theta: 0.42, phi: 0.86, distance: 14.8, label: '🎥 DIAGONAL' },
+        { theta: 0, phi: 0.32, distance: 16.5, label: '🎥 CENITAL' }
+      ];
+
+      // Eventos de ratón (mousedown, mousemove, mouseup) para cambiar ángulo de cámara 3D
+      canvas.addEventListener('mousedown', (e) => {
+        camControl.isDragging = true;
+        camControl.lastX = e.clientX;
+        camControl.lastY = e.clientY;
+      });
+
+      window.addEventListener('mousemove', (e) => {
+        if (!camControl.isDragging) return;
+        const dx = e.clientX - camControl.lastX;
+        const dy = e.clientY - camControl.lastY;
+        camControl.lastX = e.clientX;
+        camControl.lastY = e.clientY;
+
+        camControl.theta -= dx * 0.0075;
+        camControl.phi = Math.max(0.22, Math.min(1.22, camControl.phi - dy * 0.0065));
+      });
+
+      window.addEventListener('mouseup', () => {
+        camControl.isDragging = false;
+      });
+
+      // Arrastrar sobre el lienzo 3D en pantallas táctiles Android para girar la cámara
+      canvas.addEventListener('touchstart', (e) => {
+        if (e.changedTouches.length > 0 && camControl.touchId === null) {
+          const t = e.changedTouches[0];
+          camControl.touchId = t.identifier;
+          camControl.lastX = t.clientX;
+          camControl.lastY = t.clientY;
+        }
+      }, { passive: true });
+
+      canvas.addEventListener('touchmove', (e) => {
+        for (let i = 0; i < e.changedTouches.length; i++) {
+          const t = e.changedTouches[i];
+          if (t.identifier === camControl.touchId) {
+            const dx = t.clientX - camControl.lastX;
+            const dy = t.clientY - camControl.lastY;
+            camControl.lastX = t.clientX;
+            camControl.lastY = t.clientY;
+            camControl.theta -= dx * 0.0075;
+            camControl.phi = Math.max(0.22, Math.min(1.22, camControl.phi - dy * 0.0065));
+          }
+        }
+      }, { passive: true });
+
+      const endCanvasTouch = (e) => {
+        for (let i = 0; i < e.changedTouches.length; i++) {
+          if (e.changedTouches[i].identifier === camControl.touchId) {
+            camControl.touchId = null;
+          }
+        }
+      };
+      canvas.addEventListener('touchend', endCanvasTouch, { passive: true });
+      canvas.addEventListener('touchcancel', endCanvasTouch, { passive: true });
+
+      document.getElementById('btn-cam').addEventListener('click', (e) => {
+        camControl.presetIdx = (camControl.presetIdx + 1) % CAM_PRESETS.length;
+        const p = CAM_PRESETS[camControl.presetIdx];
+        camControl.theta = p.theta;
+        camControl.phi = p.phi;
+        camControl.distance = p.distance;
+        e.currentTarget.textContent = p.label;
+      });
+
+      // Luces 3D del escenario
+      const ambientLight = new THREE.AmbientLight(0xffffff, 0.58);
+      scene.add(ambientLight);
+
+      const hemiLight = new THREE.HemisphereLight(0xfef08a, 0x1e293b, 0.42);
+      scene.add(hemiLight);
+
+      const dirLight = new THREE.DirectionalLight(0xfffbeb, 0.92);
+      dirLight.position.set(7, 15, 9);
+      dirLight.castShadow = true;
+      dirLight.shadow.mapSize.width = 1024;
+      dirLight.shadow.mapSize.height = 1024;
+      dirLight.shadow.camera.near = 2;
+      dirLight.shadow.camera.far = 35;
+      const dBound = 9.5;
+      dirLight.shadow.camera.left = -dBound;
+      dirLight.shadow.camera.right = dBound;
+      dirLight.shadow.camera.top = dBound;
+      dirLight.shadow.camera.bottom = -dBound;
+      scene.add(dirLight);
+
+      // Grupos contenedores 3D
+      const boardGroup = new THREE.Group();
+      const dynamicGroup = new THREE.Group();
+      scene.add(boardGroup);
+      scene.add(dynamicGroup);
+
+      // Geometrías compartidas para alto rendimiento en móviles Android
+      const sharedGeo = {
+        tile: new THREE.BoxGeometry(1, 0.24, 1),
+        wallBase: new THREE.BoxGeometry(0.96, 0.86, 0.96),
+        wallCap: new THREE.BoxGeometry(0.84, 0.14, 0.84),
+        crate: new THREE.BoxGeometry(0.86, 0.78, 0.86),
+        crateBand: new THREE.BoxGeometry(0.90, 0.12, 0.90),
+        bombSphere: new THREE.SphereGeometry(0.36, 18, 16),
+        bombFuse: new THREE.CylinderGeometry(0.03, 0.03, 0.18, 8),
+        bombSpark: new THREE.OctahedronGeometry(0.09, 0),
+        expCore: new THREE.CylinderGeometry(0.38, 0.42, 0.95, 14),
+        expRing: new THREE.BoxGeometry(0.92, 0.35, 0.92),
+        powerupBox: new THREE.BoxGeometry(0.56, 0.56, 0.56),
+        particleCube: new THREE.BoxGeometry(0.14, 0.14, 0.14)
+      };
+
+      // Cache de texturas procedurales en Canvas 2D para iconos 3D y etiquetas
+      const iconTexturesCache = {};
+      function getPowerupTexture(type) {
+        if (iconTexturesCache[type]) return iconTexturesCache[type];
+        const meta = {
+          BOMB: { bg: '#1e3a8a', border: '#60a5fa', icon: '💣' },
+          FLAME: { bg: '#7c2d12', border: '#fb923c', icon: '🔥' },
+          SPEED: { bg: '#713f12', border: '#facc15', icon: '⚡' },
+          KICK: { bg: '#14532d', border: '#4ade80', icon: '👟' },
+          LIFE: { bg: '#881337', border: '#fb7185', icon: '❤️' }
+        }[type] || { bg: '#7c2d12', border: '#fb923c', icon: '🔥' };
+
+        const c = document.createElement('canvas');
+        c.width = 128;
+        c.height = 128;
+        const g = c.getContext('2d');
+        g.fillStyle = meta.bg;
+        g.fillRect(0, 0, 128, 128);
+        g.strokeStyle = meta.border;
+        g.lineWidth = 14;
+        g.strokeRect(7, 7, 114, 114);
+        g.font = '72px "Segoe UI Emoji", sans-serif';
+        g.textAlign = 'center';
+        g.textBaseline = 'middle';
+        g.fillText(meta.icon, 64, 68);
+
+        const tex = new THREE.CanvasTexture(c);
+        iconTexturesCache[type] = tex;
+        return tex;
+      }
+
+      const textSpritesCache = new Map();
+      function makeTextSpriteMaterial(text, color = '#fef08a') {
+        const key = `${text}_${color}`;
+        if (textSpritesCache.has(key)) return textSpritesCache.get(key);
+
+        const c = document.createElement('canvas');
+        c.width = 256;
+        c.height = 64;
+        const g = c.getContext('2d');
+        g.font = '900 30px "Segoe UI", sans-serif';
+        g.textAlign = 'center';
+        g.textBaseline = 'middle';
+        g.strokeStyle = '#090d16';
+        g.lineWidth = 7;
+        g.strokeText(text, 128, 32);
+        g.fillStyle = color;
+        g.fillText(text, 128, 32);
+
+        const tex = new THREE.CanvasTexture(c);
+        const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false });
+        textSpritesCache.set(key, mat);
+        return mat;
+      }
+
+      // Conversión de coordenadas de cuadrícula (col, row) a mundo 3D (x, z)
+      function gridToWorldX(gx) {
+        return gx - COLS / 2;
+      }
+      function gridToWorldZ(gy) {
+        return gy - ROWS / 2;
+      }
+
+      // Estado de mallas 3D sincronizadas
+      let builtStageId = -1;
+      let crateMeshes = []; // Matriz [row][col] para bloques destructibles
+      const fighterMeshes = new Map();
+      const bombMeshes = new Map();
+      const powerupMeshes = new Map();
+      const explosionPool = [];
+      const particlePool = [];
+      const labelSprites = [];
+
+      function buildStage3DBoard(stageIdx) {
+        builtStageId = stageIdx;
+        const stage = STAGES[stageIdx];
+
+        // Limpiar mallas anteriores del tablero
+        while (boardGroup.children.length > 0) {
+          boardGroup.remove(boardGroup.children[0]);
+        }
+        crateMeshes = Array.from({ length: ROWS }, () => Array(COLS).fill(null));
+
+        const matFloorA = new THREE.MeshStandardMaterial({ color: stage.floorA, roughness: 0.75 });
+        const matFloorB = new THREE.MeshStandardMaterial({ color: stage.floorB, roughness: 0.75 });
+        const matWallFill = new THREE.MeshStandardMaterial({ color: stage.wallFill, roughness: 0.45, metalness: 0.2 });
+        const matWallTop = new THREE.MeshStandardMaterial({ color: stage.wallTop, roughness: 0.3, metalness: 0.3 });
+        const matCrate = new THREE.MeshStandardMaterial({ color: stage.blockFill, roughness: 0.55 });
+        const matCrateAccent = new THREE.MeshStandardMaterial({ color: stage.blockAccent, roughness: 0.35 });
+
+        for (let r = 0; r < ROWS; r++) {
+          for (let c = 0; c < COLS; c++) {
+            const wx = gridToWorldX(c + 0.5);
+            const wz = gridToWorldZ(r + 0.5);
+
+            // Baldosa 3D del suelo
+            const tile = new THREE.Mesh(sharedGeo.tile, (r + c) % 2 === 0 ? matFloorA : matFloorB);
+            tile.position.set(wx, -0.12, wz);
+            tile.receiveShadow = true;
+            boardGroup.add(tile);
+
+            const cell = grid[r]?.[c] ?? 0;
+            if (cell === 1) {
+              // Muro o pilar 3D indestructible
+              const wallGroup = new THREE.Group();
+              wallGroup.position.set(wx, 0, wz);
+
+              const wBase = new THREE.Mesh(sharedGeo.wallBase, matWallFill);
+              wBase.position.y = 0.43;
+              wBase.castShadow = true;
+              wBase.receiveShadow = true;
+
+              const wCap = new THREE.Mesh(sharedGeo.wallCap, matWallTop);
+              wCap.position.y = 0.90;
+              wCap.castShadow = true;
+              wCap.receiveShadow = true;
+
+              wallGroup.add(wBase, wCap);
+              boardGroup.add(wallGroup);
+            } else if (cell === 2) {
+              // Bloque/caja 3D destructible
+              const crateGroup = new THREE.Group();
+              crateGroup.position.set(wx, 0.39, wz);
+
+              const box = new THREE.Mesh(sharedGeo.crate, matCrate);
+              box.castShadow = true;
+              box.receiveShadow = true;
+
+              const band = new THREE.Mesh(sharedGeo.crateBand, matCrateAccent);
+              crateGroup.add(box, band);
+
+              boardGroup.add(crateGroup);
+              crateMeshes[r][c] = crateGroup;
+            }
+          }
+        }
+
+        // Limpiar modelos dinámicos al reiniciar una fase
+        fighterMeshes.forEach((m) => dynamicGroup.remove(m.root));
+        fighterMeshes.clear();
+        bombMeshes.forEach((m) => dynamicGroup.remove(m));
+        bombMeshes.clear();
+        powerupMeshes.forEach((m) => dynamicGroup.remove(m));
+        powerupMeshes.clear();
+      }
+
+      // Sobrescribir initStage para construir también la escena 3D
+      const originalInitStage = initStage;
+      initStage = function (stageIdx) {
+        originalInitStage(stageIdx);
+        buildStage3DBoard(stageIdx);
+      };
+
+      function resizeArenaCanvas() {
+        const rect = playfieldArea.getBoundingClientRect();
+        const availW = Math.max(280, Math.floor(rect.width - 8));
+        const availH = Math.max(220, Math.floor(rect.height - 6));
+
+        if (canvas.clientWidth !== availW || canvas.clientHeight !== availH) {
+          renderer.setSize(availW, availH, false);
+          camera.aspect = availW / availH;
+          camera.updateProjectionMatrix();
+        }
+      }
+
+      function renderArena(timeSec) {
+        resizeArenaCanvas();
+        if (builtStageId !== currentStageIdx && grid.length > 0) {
+          buildStage3DBoard(currentStageIdx);
+        }
+
+        // 1. Actualizar posición de la cámara 3D con posible vibración de explosión (screenShake)
+        const shakeX = screenShake > 0.2 ? (Math.random() - 0.5) * screenShake * 0.04 : 0;
+        const shakeZ = screenShake > 0.2 ? (Math.random() - 0.5) * screenShake * 0.04 : 0;
+
+        // Ajustar distancia según si la pantalla está en vertical (Portrait) u horizontal
+        const aspectFactor = camera.aspect < 1 ? 1.28 / Math.max(0.55, camera.aspect) : 1.0;
+        const dist = camControl.distance * Math.min(1.55, aspectFactor);
+
+        const camX = dist * Math.sin(camControl.phi) * Math.sin(camControl.theta);
+        const camY = dist * Math.cos(camControl.phi);
+        const camZ = dist * Math.sin(camControl.phi) * Math.cos(camControl.theta);
+
+        camera.position.set(camX + shakeX, camY, camZ + shakeZ);
+        camera.lookAt(shakeX, 0, shakeZ + 0.35);
+
+        // 2. Sincronizar bloques destructibles (ocultar los que hayan sido destruidos)
+        for (let r = 0; r < ROWS; r++) {
+          for (let c = 0; c < COLS; c++) {
+            const mesh = crateMeshes[r]?.[c];
+            if (mesh && grid[r]?.[c] !== 2) {
+              boardGroup.remove(mesh);
+              crateMeshes[r][c] = null;
+            }
+          }
+        }
+
+        // 3. Sincronizar potenciadores 3D giratorios
+        const activePuKeys = new Set();
+        powerups.forEach((pu) => {
+          const key = `${pu.col},${pu.row}`;
+          activePuKeys.add(key);
+          let mesh = powerupMeshes.get(key);
+          if (!mesh) {
+            const mat = new THREE.MeshStandardMaterial({
+              map: getPowerupTexture(pu.type),
+              roughness: 0.25,
+              metalness: 0.15
+            });
+            mesh = new THREE.Mesh(sharedGeo.powerupBox, mat);
+            mesh.castShadow = true;
+            dynamicGroup.add(mesh);
+            powerupMeshes.set(key, mesh);
+          }
+          mesh.position.set(
+            gridToWorldX(pu.col + 0.5),
+            0.38 + Math.sin(pu.bobTimer * 5) * 0.09,
+            gridToWorldZ(pu.row + 0.5)
+          );
+          mesh.rotation.y = timeSec * 2.4;
+        });
+
+        powerupMeshes.forEach((mesh, key) => {
+          if (!activePuKeys.has(key)) {
+            dynamicGroup.remove(mesh);
+            powerupMeshes.delete(key);
+          }
+        });
+
+        // 4. Sincronizar bombas 3D con mecha chispeante
+        const activeBombIds = new Set();
+        bombs.forEach((b) => {
+          activeBombIds.add(b.id);
+          let bGroup = bombMeshes.get(b.id);
+          if (!bGroup) {
+            bGroup = new THREE.Group();
+            const bColor = b.element === 'volt' ? 0xeab308 : b.element === 'hydro' ? 0x0284c7 : 0xdc2626;
+            const sphereMat = new THREE.MeshStandardMaterial({
+              color: 0x1e293b,
+              emissive: bColor,
+              emissiveIntensity: 0.35,
+              roughness: 0.2,
+              metalness: 0.65
+            });
+            const sphere = new THREE.Mesh(sharedGeo.bombSphere, sphereMat);
+            sphere.castShadow = true;
+
+            const fuseMat = new THREE.MeshStandardMaterial({ color: 0xfef08a });
+            const fuse = new THREE.Mesh(sharedGeo.bombFuse, fuseMat);
+            fuse.position.y = 0.40;
+
+            const sparkMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+            const spark = new THREE.Mesh(sharedGeo.bombSpark, sparkMat);
+            spark.position.y = 0.52;
+            bGroup.userData = { sphereMat, spark };
+
+            bGroup.add(sphere, fuse, spark);
+            dynamicGroup.add(bGroup);
+            bombMeshes.set(b.id, bGroup);
+          }
+
+          const pulse = 1 + Math.sin(timeSec * 16 + b.id) * 0.12;
+          bGroup.scale.set(pulse, pulse, pulse);
+          bGroup.position.set(gridToWorldX(b.x), 0.36, gridToWorldZ(b.y));
+          bGroup.userData.spark.rotation.y = timeSec * 12;
+          bGroup.userData.sphereMat.emissiveIntensity = 0.35 + Math.abs(Math.sin(timeSec * 14)) * 0.45;
+        });
+
+        bombMeshes.forEach((mesh, id) => {
+          if (!activeBombIds.has(id)) {
+            dynamicGroup.remove(mesh);
+            bombMeshes.delete(id);
+          }
+        });
+
+        // 5. Sincronizar columnas de explosión 3D
+        while (explosionPool.length < explosions.length) {
+          const exGroup = new THREE.Group();
+          const coreMat = new THREE.MeshBasicMaterial({ color: 0xfef9c3, transparent: true, opacity: 0.9 });
+          const outerMat = new THREE.MeshBasicMaterial({ color: 0xf97316, transparent: true, opacity: 0.7 });
+          const core = new THREE.Mesh(sharedGeo.expCore, coreMat);
+          core.position.y = 0.48;
+          const ring = new THREE.Mesh(sharedGeo.expRing, outerMat);
+          ring.position.y = 0.22;
+          exGroup.add(core, ring);
+          exGroup.userData = { coreMat, outerMat };
+          dynamicGroup.add(exGroup);
+          explosionPool.push(exGroup);
+        }
+
+        for (let i = 0; i < explosionPool.length; i++) {
+          const exMesh = explosionPool[i];
+          if (i < explosions.length) {
+            const ex = explosions[i];
+            const ratio = ex.timer / ex.maxTimer;
+            exMesh.visible = true;
+            exMesh.position.set(gridToWorldX(ex.col + 0.5), 0, gridToWorldZ(ex.row + 0.5));
+            exMesh.scale.set(0.6 + ratio * 0.45, 0.5 + ratio * 0.8, 0.6 + ratio * 0.45);
+            const colHex = ex.element === 'volt' ? 0xfacc15 : ex.element === 'hydro' ? 0x38bdf8 : 0xf97316;
+            exMesh.userData.outerMat.color.setHex(colHex);
+            exMesh.userData.outerMat.opacity = Math.min(0.85, ratio * 1.4);
+            exMesh.userData.coreMat.opacity = Math.min(1.0, ratio * 1.6);
+          } else {
+            exMesh.visible = false;
+          }
+        }
+
+        // 6. Sincronizar los luchadores 3D y sus indicadores de vidas
+        fighters.forEach((f) => {
+          let model = fighterMeshes.get(f.id);
+          if (!model) {
+            model = createFighter3DMesh(f.type);
+            if (!f.isHuman) {
+              const heartSprite = new THREE.Sprite(makeTextSpriteMaterial('❤️❤️❤️', '#ffffff'));
+              heartSprite.position.set(0, 1.15, 0);
+              heartSprite.scale.set(1.4, 0.35, 1);
+              model.root.add(heartSprite);
+              model.heartSprite = heartSprite;
+            }
+            dynamicGroup.add(model.root);
+            fighterMeshes.set(f.id, model);
+          }
+
+          if (!f.alive) {
+            model.root.visible = false;
+          } else {
+            model.root.position.set(gridToWorldX(f.x), 0, gridToWorldZ(f.y));
+            animateFighter3D(model, f.animTime, f.isMoving, f.dir, f.invulnTimer);
+            if (model.heartSprite) {
+              model.heartSprite.material = makeTextSpriteMaterial('❤️'.repeat(f.lives), '#ffffff');
+            }
+          }
+        });
+
+        // 7. Partículas 3D y etiquetas flotantes 3D
+        while (particlePool.length < particles.length) {
+          const pMat = new THREE.MeshBasicMaterial({ color: 0xfacc15 });
+          const pMesh = new THREE.Mesh(sharedGeo.particleCube, pMat);
+          dynamicGroup.add(pMesh);
+          particlePool.push(pMesh);
+        }
+        for (let i = 0; i < particlePool.length; i++) {
+          const pMesh = particlePool[i];
+          if (i < particles.length) {
+            const pt = particles[i];
+            const lifeRatio = Math.max(0.1, pt.life / pt.maxLife);
+            pMesh.visible = true;
+            pMesh.position.set(gridToWorldX(pt.x), 0.3 + (1 - lifeRatio) * 0.4, gridToWorldZ(pt.y));
+            pMesh.scale.setScalar(lifeRatio);
+            pMesh.rotation.x += 0.15;
+            pMesh.rotation.y += 0.15;
+            pMesh.material.color.set(pt.color);
+          } else {
+            pMesh.visible = false;
+          }
+        }
+
+        while (labelSprites.length < floatingLabels.length) {
+          const sp = new THREE.Sprite(makeTextSpriteMaterial('', '#fef08a'));
+          sp.scale.set(2.1, 0.52, 1);
+          dynamicGroup.add(sp);
+          labelSprites.push(sp);
+        }
+        for (let i = 0; i < labelSprites.length; i++) {
+          const sp = labelSprites[i];
+          if (i < floatingLabels.length) {
+            const fl = floatingLabels[i];
+            sp.visible = true;
+            sp.material = makeTextSpriteMaterial(fl.text, fl.color);
+            sp.position.set(gridToWorldX(fl.x), 1.2 + (1 - fl.life) * 0.6, gridToWorldZ(fl.y));
+          } else {
+            sp.visible = false;
+          }
+        }
+
+        renderer.render(scene, camera);
+      }
+
+      /* --------------------------------------------------------------------------
+         12. GESTIÓN DE MENÚS, FIN DE FASE Y BUCLE PRINCIPAL
+         -------------------------------------------------------------------------- */
+      const startOverlay = document.getElementById('start-overlay');
+      const pauseOverlay = document.getElementById('pause-overlay');
+      const endOverlay = document.getElementById('end-overlay');
+
+      function finishStage(playerWon) {
+        gameState = 'STAGE_END';
+        audio.stopMusic();
+
+        const titleEl = document.getElementById('end-title');
+        const subEl = document.getElementById('end-subtitle');
+        const detEl = document.getElementById('end-details');
+        const primaryBtn = document.getElementById('btn-end-primary');
+
+        endOverlay.classList.remove('hidden');
+
+        if (playerWon) {
+          audio.sfxStageClear();
+          if (currentStageIdx < STAGES.length - 1) {
+            titleEl.textContent = '¡FASE COMPLETADA!';
+            subEl.textContent = `Has despejado ${STAGES[currentStageIdx].name}`;
+            detEl.textContent = `Vidas restantes: ${humanPlayer.lives} ❤️ • Siguiente reto: ${STAGES[currentStageIdx + 1].name}.`;
+            primaryBtn.textContent = '⚔️ SIGUIENTE FASE';
+            primaryBtn.dataset.mode = 'next';
+          } else {
+            titleEl.textContent = '¡CAMPEÓN BOMBERMAN!';
+            subEl.textContent = '¡Has conquistado las 4 Fases Elementales!';
+            detEl.textContent = `Completaste la Fortaleza Volcánica conservando ${humanPlayer.lives} vidas.`;
+            primaryBtn.textContent = '🏆 JUGAR DE NUEVO';
+            primaryBtn.dataset.mode = 'restart_all';
+          }
+        } else {
+          audio.sfxHurt();
+          titleEl.textContent = 'FIN DE LA PARTIDA';
+          subEl.textContent = 'Has perdido tus 3 vidas en la arena';
+          detEl.textContent = `Caíste en ${STAGES[currentStageIdx].name}. ¡Vuelve a intentarlo!`;
+          primaryBtn.textContent = '🔄 REINTENTAR FASE';
+          primaryBtn.dataset.mode = 'retry';
+        }
+      }
+
+      // Selección de personaje en pantalla inicial
+      const charCards = document.querySelectorAll('.char-card');
+      charCards.forEach((card) => {
+        card.addEventListener('click', () => {
+          audio.init();
+          audio.sfxPlaceBomb();
+          charCards.forEach((c) => c.classList.remove('active'));
+          card.classList.add('active');
+          selectedChar = card.dataset.char;
+        });
+      });
+
+      // Selección de fase inicial
+      const stageChoices = document.querySelectorAll('.stage-choice');
+      stageChoices.forEach((btn) => {
+        btn.addEventListener('click', () => {
+          audio.init();
+          audio.sfxKick();
+          stageChoices.forEach((b) => b.classList.remove('active'));
+          btn.classList.add('active');
+          currentStageIdx = parseInt(btn.dataset.stage, 10) || 0;
+        });
+      });
+
+      document.getElementById('btn-start-game').addEventListener('click', () => {
+        audio.init();
+        startOverlay.classList.add('hidden');
+        initStage(currentStageIdx);
+      });
+
+      document.getElementById('btn-music').addEventListener('click', (e) => {
+        const muted = audio.toggleMusic();
+        e.currentTarget.textContent = muted ? '🔇 MÚSICA' : '🎵 MÚSICA';
+        e.currentTarget.classList.toggle('muted', muted);
+      });
+
+      document.getElementById('btn-sfx').addEventListener('click', (e) => {
+        const muted = audio.toggleSfx();
+        e.currentTarget.textContent = muted ? '🔇 SFX' : '🔊 SFX';
+        e.currentTarget.classList.toggle('muted', muted);
+      });
+
+      document.getElementById('btn-pause').addEventListener('click', () => {
+        if (gameState === 'PLAYING') {
+          gameState = 'PAUSED';
+          audio.stopMusic();
+          pauseOverlay.classList.remove('hidden');
+        }
+      });
+
+      document.getElementById('btn-resume').addEventListener('click', () => {
+        pauseOverlay.classList.add('hidden');
+        gameState = 'PLAYING';
+        audio.startMusic(STAGES[currentStageIdx].theme);
+      });
+
+      document.getElementById('btn-restart-stage').addEventListener('click', () => {
+        pauseOverlay.classList.add('hidden');
+        initStage(currentStageIdx);
+      });
+
+      document.getElementById('btn-to-menu').addEventListener('click', () => {
+        pauseOverlay.classList.add('hidden');
+        audio.stopMusic();
+        gameState = 'MENU';
+        startOverlay.classList.remove('hidden');
+      });
+
+      document.getElementById('btn-end-primary').addEventListener('click', (e) => {
+        endOverlay.classList.add('hidden');
+        const mode = e.currentTarget.dataset.mode;
+        if (mode === 'next') initStage(currentStageIdx + 1);
+        else if (mode === 'restart_all') initStage(0);
+        else initStage(currentStageIdx);
+      });
+
+      document.getElementById('btn-end-menu').addEventListener('click', () => {
+        endOverlay.classList.add('hidden');
+        gameState = 'MENU';
+        startOverlay.classList.remove('hidden');
+      });
+
+      // Bucle principal de animación a 60 FPS
+      let lastTime = 0;
+
+      function gameLoop(timestamp) {
+        if (!lastTime) lastTime = timestamp;
+        const dt = Math.min(0.05, (timestamp - lastTime) / 1000);
+        lastTime = timestamp;
+        const timeSec = timestamp / 1000;
+
+        if (gameState === 'MENU') {
+          renderSelectionPreviews(timeSec);
+        } else {
+          updateSimulation(dt);
+          renderArena(timeSec);
+        }
+
+        requestAnimationFrame(gameLoop);
+      }
+
+      window.onload = function () {
+        requestAnimationFrame(gameLoop);
+      };
+      if (document.readyState === 'complete') {
+        requestAnimationFrame(gameLoop);
+      }
+    })();
+  </script>
+</body>
+</html>
